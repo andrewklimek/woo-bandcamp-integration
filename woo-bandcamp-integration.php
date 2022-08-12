@@ -79,6 +79,15 @@ function vendor_address( $vendor )
 
 function main_process(){
 
+	$log_errors_setting = ini_get( 'log_errors' );
+	$error_log_setting = ini_get( 'error_log' );
+	error_reporting( E_ALL );
+	// ini_set( 'display_errors', 0 );
+	ini_set( 'log_errors', 1 );
+	ini_set( 'error_log', __DIR__ . '/php_errors.log' );
+
+	$fart = $test;
+
 	$settings = $GLOBALS['bc2wc_settings'] = get_option('mnmlbc2wc');
 
 	if ( empty($settings['client_id']) || empty($settings['client_secret']) ) return;// Quit right away if no credentials
@@ -255,6 +264,9 @@ function main_process(){
 	endif; // bands
 
 	return $report;
+
+	ini_set( 'log_errors', $log_errors_setting );
+	ini_set( 'error_log', $error_log_setting );
 }
 
 
@@ -529,7 +541,7 @@ function prepare_data_for_woo_order( $data, $o ) {
  * https://developer.wordpress.org/reference/functions/get_page_by_title/
  */
 function find_woo_product( $data ) {
-    wbi_debug($data);
+    wbi_debug( str_replace( ["   ", "\n"], [""," "], var_export( array_filter( $data ), true ) ) );
 
 	// try getting by sku
 	$sku = $data->sku;
