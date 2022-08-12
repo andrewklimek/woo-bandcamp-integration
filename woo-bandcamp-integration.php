@@ -452,6 +452,11 @@ function prepare_data_for_woo_order( $data, $o ) {
     if ( !empty( $GLOBALS['bc2wc_settings']['combine_orders'] ) ) {
         $order_key = $data->ship_to_name .'---'. $data->ship_to_street;
     }
+
+	// initialize order with blank parameters
+	if ( ! isset( $o[ $order_key ] ) ) {
+		$o[ $order_key ] = [ 'shipping' => [], 'bc_id' => [], 'line_items' => [] ];
+	}
     
 	// find Woo product ID for this bandcamp item
 	// if it's a variant, use that ID instead
@@ -465,8 +470,8 @@ function prepare_data_for_woo_order( $data, $o ) {
 		// run function with a few ways to try to find it
 		$product_id = find_woo_product( $data );
 		if ( ! $product_id ) {
-			wbi_debug("Couldn't find product ID for $data->item_name");
-			$o[ $order_key ]['missing_item'] = "{$data->ship_to_name} — couldn’t find product {$data->item_name} {$data->sku}";
+			wbi_debug("Couldnt find product ID for $data->item_name");
+			$o[ $order_key ]['missing_item'] = "{$data->ship_to_name} — couldnt find product {$data->item_name} {$data->sku}";
 			return $o;
 		}
 		
@@ -494,7 +499,7 @@ function prepare_data_for_woo_order( $data, $o ) {
 			$name = explode( ' ', $data->ship_to_name, 2 );
 		}
 
-		$address = [
+		$o[ $order_key ]['shipping'] = [
 			'shipping_first_name' => $name[0],
 			'shipping_last_name'  => isset($name[1]) ? $name[1] : '',
 			// 'shipping_phone'      => '', //$data->buyer_phone,
@@ -506,8 +511,6 @@ function prepare_data_for_woo_order( $data, $o ) {
 			'shipping_postcode'   => $data->ship_to_zip,
 			'shipping_country'    => $data->ship_to_country_code
 		];
-
-		$o[ $order_key ] = [ 'shipping' => $address, 'bc_id' => [], 'line_items' => [] ];
 	}
 	
     // add product as line item
