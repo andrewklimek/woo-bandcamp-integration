@@ -86,8 +86,6 @@ function main_process(){
 	ini_set( 'log_errors', 1 );
 	ini_set( 'error_log', __DIR__ . '/php_errors.log' );
 
-	$fart = $test;
-
 	$settings = $GLOBALS['bc2wc_settings'] = get_option('mnmlbc2wc');
 
 	if ( empty($settings['client_id']) || empty($settings['client_secret']) ) return;// Quit right away if no credentials
@@ -541,7 +539,7 @@ function prepare_data_for_woo_order( $data, $o ) {
  * https://developer.wordpress.org/reference/functions/get_page_by_title/
  */
 function find_woo_product( $data ) {
-    wbi_debug( str_replace( ["   ", "\n"], [""," "], var_export( array_filter( $data ), true ) ) );
+    wbi_debug( str_replace( ["   ", "\n"], [""," "], var_export( $data, true ) ) );
 
 	// try getting by sku
 	$sku = $data->sku;
