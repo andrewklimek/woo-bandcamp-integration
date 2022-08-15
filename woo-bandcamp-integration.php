@@ -337,13 +337,15 @@ function make_woo_order( $data ) {
 	/**
 	 * add VAT as done by WC add-on "EU VAT Number"
 	 * see line 555 in class-wc-eu-vat-number.php
-	 * however I think they are using an old version of this pluginand the metadata has been renamed to _billing_vat_number
+	 * however I think they are using an old version of this plugin and the metadata has been renamed to _billing_vat_number
 	 * https://woocommerce.com/document/eu-vat-number/#vat-numbers-meta-field
 	 */
-	$order->add_meta_data( '_vat_number', $data['billing']['billing_vat_number'] );
-	$order->add_meta_data( '_vat_number_is_validated', 'true' );// couldnt find why these would be needed
-	$order->add_meta_data( '_vat_number_is_valid', 'true' );
-    unset($data['billing']['billing_vat_number']);// not used in loop below
+	if ( !empty( $data['billing']['billing_vat_number'] ) ) {
+		$order->add_meta_data( '_vat_number', $data['billing']['billing_vat_number'] );
+		$order->add_meta_data( '_vat_number_is_validated', 'true' );// couldnt find why these would be needed
+		$order->add_meta_data( '_vat_number_is_valid', 'true' );
+		unset($data['billing']['billing_vat_number']);// not used in loop below
+	}
     
 	foreach ( ['billing', 'shipping'] as $type ) {
 		foreach ( $data[$type] as $key => $value ) {
