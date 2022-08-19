@@ -379,7 +379,7 @@ function make_woo_order( $data ) {
 			WC()->cart->empty_cart();
 			wbi_debug("had to empty cart");
 		}
-		wbi_debug(WC()->cart,'WC()->cart');
+		// wbi_debug(WC()->cart,'WC()->cart');
 	// }
 	// if ( $calc_ship ) {
 		// get shipping rates by simulating a cart
@@ -405,7 +405,7 @@ function make_woo_order( $data ) {
 			   wbi_debug( end( wc_get_notices('error') )['notice'] );
 			}
 		}
-		wbi_debug(WC()->cart->get_cart(), "get cart 1");
+		// wbi_debug(WC()->cart->get_cart(), "get cart 1");
 		$packages = WC()->cart->get_shipping_packages();
 		$shipping = WC()->shipping()->calculate_shipping($packages);
 		// $shipping = WC()->shipping()->get_packages();
@@ -419,7 +419,7 @@ function make_woo_order( $data ) {
 			}
 		}
 		wbi_debug($shipping[0]['destination'], "calculate shipping array destination");
-		wbi_debug(WC()->cart->get_cart(), "get cart 2");
+		// wbi_debug(WC()->cart->get_cart(), "get cart 2");
 		if ( ! $rate ) {
 			wbi_debug('couldnt find rate with the right label');
 			wbi_debug($shipping);
