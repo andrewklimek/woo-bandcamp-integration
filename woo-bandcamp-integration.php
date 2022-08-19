@@ -163,18 +163,19 @@ function main_process(){
 		{
 			$vendor = false;
 			// only include these bands
-			if ( !empty($settings['bands_include']) && false === strpos( $settings['bands_include'], (string) $bid ) ) {
-				wbi_debug("skipping {$bid}");
+			if ( !empty($settings['bands_include']) && ! in_array( (string) $bid, explode(',', str_replace(' ','',$settings['bands_include'])), true ) ) {
+				wbi_debug("skipping band {$bid}");
 				continue;
 			}
 			// don't include these bands
-			if ( !empty($settings['bands_exclude']) && false !== strpos( $settings['bands_exclude'], (string) $bid ) ) {
-				wbi_debug("skipping {$bid}");
+			if ( !empty($settings['bands_exclude']) && in_array( (string) $bid, explode(',', str_replace(' ','',$settings['bands_exclude'])), true ) ) {
+				wbi_debug("skipping band {$bid}");
 				continue;
 			}
 			$vendor_address = vendor_address('global');
 
 		}
+		wbi_debug("Processing band {$bid}");
 		// var_export($vendor_address);
 		
 
