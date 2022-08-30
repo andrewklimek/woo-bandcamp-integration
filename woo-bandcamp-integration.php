@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2022-08-04 make tracking number work for shipstation
+Version:     2022-08-30 sql escape
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -559,7 +559,7 @@ function find_woo_product( $data ) {
 	global $wpdb;
 
 	$data->item_name = substr( $data->item_name, 0, strrpos( $data->item_name, ' by ' ) );// remove " by artist" portion
-	$results = $wpdb->get_col( "SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key='bandcamp_title' AND meta_value='{$data->item_name}' LIMIT 2" );
+	$results = $wpdb->get_col( "SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key='bandcamp_title' AND meta_value='". esc_sql($data->item_name) ."' LIMIT 2" );
 	if ( count( $results ) === 1 ) {
 		wbi_debug("Found product {$results[0]} by matching bandcamp product title {$data->item_name}");
     	return $results[0];
@@ -580,7 +580,7 @@ function find_woo_product( $data ) {
 	// try getting by album name
 	$album = explode( ': ', $data->item_name, 2 )[0];// "natural serenity: CD digipak edition by taennya" where "CD digipak edition" is the portion you define on merch page
 
-	$results = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}posts WHERE post_type='product' AND post_title LIKE '%{$album}%'" );
+	$results = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}posts WHERE post_type='product' AND post_title LIKE '%". esc_sql($album) ."%'" );
 
 	// none found
 	// if ( ! $results ) {
