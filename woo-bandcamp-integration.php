@@ -1663,8 +1663,7 @@ function show_log() {
 function wbi_debug( $var, $note='', $file='debug.log', $time='m-d H:i:s' ){
 	if ( $note ) $note = "***{$note}***\n";
 	ob_start();
-	var_export($var);
+	var_dump($var);
 	$var = ob_get_clean();
 	error_log("\n[". date($time) ."] ". $note . $var, 3, __DIR__ ."/". $file );
 }
-
