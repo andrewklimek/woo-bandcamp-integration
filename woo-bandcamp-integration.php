@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2022-08-30 sql escape
+Version:     2022-09-30 bc option field
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -559,13 +559,61 @@ function find_woo_product( $data ) {
 	global $wpdb;
 
 	$data->item_name = substr( $data->item_name, 0, strrpos( $data->item_name, ' by ' ) );// remove " by artist" portion
-	$results = $wpdb->get_col( "SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key='bandcamp_title' AND meta_value='". esc_sql($data->item_name) ."' LIMIT 2" );
-	if ( count( $results ) === 1 ) {
-		wbi_debug("Found product {$results[0]} by matching bandcamp product title {$data->item_name}");
-    	return $results[0];
+
+	$product = $data->item_name;
+	// if ( !empty( $data->option ) ) $product .= "||" . $data->option;
+
+	$results = $wpdb->get_col( "SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key='bandcamp_title' AND meta_value='". esc_sql($product) ."' LIMIT 2" );
+
+
+	// wbi_debug("data option");
+	// wbi_debug($data->option);
+
+
+	// maybe shouldn't include the $data->option check, but the logic is this should only run for merch like shirts.
+	// they dont show "album name:" in the bc fullfillment dash, btu they DO have that in the API title, if the merch included an album download.
+	if ( ! $results && !empty( $data->option ) && strpos( $product, ': ' ) ) {
+		$product = explode( ': ', $product, 2 )[1];
+		wbi_debug($product);
+		$results = $wpdb->get_col( "SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key='bandcamp_title' AND meta_value='". esc_sql($product) ."' LIMIT 2" );
 	}
 
-	// return false;// maybe make an option to use matching attempts below
+	if ( ! $results ) {
+		log("couldnt match product to bandcamp title {$product}");
+		wbi_debug($results);
+		return false;
+	} elseif ( count( $results ) > 1  ) {
+		log("multiple products had the title... couldn't match it. {$product}");
+		return false;
+	} else {
+		wbi_debug("Found product {$results[0]} by matching bandcamp product title {$product}");
+    	$product_id = $results[0];
+	}
+
+	// see if this is a variable product
+	if ( !empty( $data->option ) ) {
+		// if its a variable product, it could be set on BC as seperate products (vinyl colors set as seperate items so each displays on the page)
+		// in this case the data->option would be empty but its OK because it would match just one variation in WC. The variations would hold the BC title not the parent.
+		// $product = wc_get_product( $product_id ); if ( $product->is_type( 'variable' ) ) ... // if ia check is actually needed, this is how.
+		$opt = trim($data->option);
+		$results = $wpdb->get_col("SELECT post_id FROM {$wpdb->prefix}posts as p JOIN {$wpdb->prefix}postmeta as m ON (p.ID=m.post_id) WHERE post_parent={$product_id} AND meta_key='bandcamp_title' AND meta_value='{$opt}' LIMIT 2");
+		if ( ! $results ) {
+			log("Matched bandcamp title but couldnt find option {$opt} - {$product}");
+			wbi_debug($results);
+			return false;
+		} elseif ( count( $results ) > 1  ) {
+			log("multiple products had the option... couldn't match it. {$opt} - {$product}");
+			return false;
+		} else {
+			wbi_debug("Found product {$results[0]} by matching bandcamp product title {$product} AND option {$opt}");
+			$product_id = $results[0];
+		}
+	}
+
+
+	return $product_id;
+	
+	// maybe make an option to use matching attempts below
 	
 	if ( false !== stripos( " ". $data->item_name, " CD" ) ) {
 	    $format = " CD";
@@ -1207,28 +1255,39 @@ function bc2wc_assign_order_to( $g, $k, $v, $f ) {
  * Custom product field for entering bandcamp title exactly
  * Functions written to handle variations and simple products
  */
-add_action( 'woocommerce_product_after_variable_attributes', __NAMESPACE__ . '\add_bandcamp_title_field', 10, 2 );
-add_action( 'woocommerce_save_product_variation', __NAMESPACE__ . '\save_bandcamp_title_field', 10, 2 );
+add_action( 'woocommerce_product_after_variable_attributes', __NAMESPACE__ . '\add_bandcamp_title_field_option', 10, 2 );
 add_action( 'woocommerce_product_options_general_product_data', __NAMESPACE__ . '\add_bandcamp_title_field', 10, 0 );
+add_action( 'woocommerce_save_product_variation', __NAMESPACE__ . '\save_bandcamp_title_field', 10, 2 );
 add_action( 'save_post_product', __NAMESPACE__ . '\save_bandcamp_title_field', 10, 1 );
 
-function add_bandcamp_title_field( $var='', $data='' ){
+function add_bandcamp_title_field_option( $var, $data ){
 	woocommerce_wp_text_input([
 		'id'            => "bandcamp_title{$var}",
-		'label'         => "Bandcamp Product Title",
+		'label'         => "Bandcamp Option Name",
+		'wrapper_class' => 'form-row form-row-full',
 		'value'         => !empty($data['bandcamp_title']) ? $data['bandcamp_title'][0] : null,// other way: get_post_meta( $variation->ID, 'bandcamp_title', true ) // $variation is the 3rd function param
-		'wrapper_class' => $data ? 'form-row form-row-full' : 'show_if_simple hidden',
-		'placeholder'   => 'Album Title: 12" Vinyl LP (Limited Edition)',//exactly as it appears in the bandcamp fulfillment portal. exclude “by artist”',
+		'placeholder'   => 'eg: Large, Splatter',
 		'desc_tip'      => true,
-		'description'   => "Optional. Use this to match Bandcamp products to Woo products if you can't use SKUs.  Enter exactly as shown on Bandcamp order page, or import log. Don't include “by artist’",
-		'style'			=> $data ? null : "width:95%",
+		'description'   => "Optional. Use this to match Bandcamp products to Woo products if you can't use SKUs.",
+	]);
+}
+
+function add_bandcamp_title_field(){
+	// this function populates the value automatically
+	woocommerce_wp_text_input([
+		'id'            => "bandcamp_title",
+		'label'         => "Bandcamp Product Title",
+		'style'			=> "width:calc(100% - 25px)",// as much room as we can - room for tool tip
+		'wrapper_class' => 'show_if_simple show_if_variable',
+		// 'placeholder'   => 'Album Title: 12" Vinyl LP',//exactly as it appears in the bandcamp fulfillment portal. exclude “by artist”',
+		'desc_tip'      => true,
+		'description'   => "Optional. Use this to match Bandcamp products to Woo products if you can't use SKUs.  Enter exactly as shown on Bandcamp order page, or import log. Don't include “by artist”",
 	]);
 }
 
 function save_bandcamp_title_field( $id, $var='' ) {
 	empty($_POST['bandcamp_title'. $var]) ? delete_post_meta($id, 'bandcamp_title') : update_post_meta($id, 'bandcamp_title', $_POST['bandcamp_title'. $var]);
 }
-
 
 
 /**
