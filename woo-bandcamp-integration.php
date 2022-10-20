@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2022-09-30 bc option field
+Version:     2022-10-20 get orders back 2 years
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -865,7 +865,7 @@ function mark_shipped( $token, $bcid, $carrier, $tracking, $message ) {
 
 function get_orders( $band_id, $token ) {
 
-	$body = '{"band_id":' . $band_id .',"unshipped_only":"true","start_time":"'. date( 'Y-m-d', strtotime('-1 year') ) .'"}';
+	$body = '{"band_id":' . $band_id .',"unshipped_only":"true","start_time":"'. date( 'Y-m-d', strtotime('-2 year') ) .'"}';
 
 	// https://www.php.net/manual/en/function.curl-setopt.php
 	$options = [
