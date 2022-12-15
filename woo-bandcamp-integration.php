@@ -1067,7 +1067,7 @@ function api_settings( $request ) {
 	$data = $request->get_body_params();
 	foreach ( $data as $k => $v ) update_option( $k, $v, false );
 	
-	set_default_customer($data);
+	// set_default_customer($data);
 
 	set_cron($data);
 	
@@ -1086,7 +1086,14 @@ function set_cron( $data ) {
 }
 add_action( 'mnmlbc2wc_main_cron_hook', __NAMESPACE__ .'\main_process' );
 
-
+/**
+ * This retroactively sets orders to default user... won't normally use this but can be enabled on settigns saved in apt_settings() above.
+ * if run by accident, this SQL command can help fix:
+ * SELECT CONCAT("UPDATE wp_postmeta SET meta_value=",user_id," WHERE meta_key='_customer_user' AND post_id=",post_id,";")
+ * FROM wp_postmeta as p JOIN wp_usermeta as u USING (meta_value) WHERE u.meta_key='billing_email' AND p.meta_key='_billing_email'
+ * ... and to unset guest orders:
+ * UPDATE wp_postmeta SET meta_value=0 WHERE meta_key='_customer_user' AND meta_value=999;// <--- 999: replace with ID of 'assign_orders_to' user
+ */
 function set_default_customer( $data ) {
     if ( !empty( $data['mnmlbc2wc']['assign_orders_to'] ) && is_numeric( $data['mnmlbc2wc']['assign_orders_to'] ) ) {
         global $wpdb;
