@@ -1392,7 +1392,7 @@ function settings_page() {
 	if ( $script ) echo "<script>$script</script>";
 	echo '</table>';
 
-	?><p><button class=button-primary>Save Changes</button>
+	?><div style="position:fixed;bottom:0;right:0;padding:24px;background:#f0f0f1"><button class=button-primary>Save Changes</button></div>
 	</form>
 </div>
 <?php
