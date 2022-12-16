@@ -38,7 +38,7 @@ function add_cron_interval($schedules) {
 }
 add_filter( 'cron_schedules', __NAMESPACE__ .'\add_cron_interval');
 
-// register_activation_hook( __FILE__, __NAMESPACE__ .'\set_cron' );// only add on first option save?
+// register_activation_hook( __FILE__, __NAMESPACE__ .'\add_cron' );// only add on first option save?
 
 register_deactivation_hook( __FILE__, __NAMESPACE__ .'\remove_cron' );
 
@@ -140,7 +140,7 @@ function main_process(){
 
 	// TEMP
 	remove_cron();
-	set_cron();
+	add_cron();
 
 
 	$settings = $GLOBALS['bc2wc_settings'] = get_option('mnmlbc2wc');
