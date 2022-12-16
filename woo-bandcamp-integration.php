@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2022-12-16 cleanup cron
+Version:     2022-12-16 new Marketplace Mode (written 10-29)
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -116,6 +116,18 @@ function vendor_address( $vendor )
 	return $address;
 }
 
+/**
+ * Replace normal price with Admin Commission field added by Dokan plugin. This is for Merch.is
+ * This filter is in wc_get_price_excluding_tax called by $order->add_product();
+ */
+function set_price_to_admin_commission( $price, $qty, $product ) {
+
+	$commission = get_post_meta( $product->get_id(), '_per_product_admin_commission', true );
+	if ( is_numeric( $commission ) ) {
+		$price = (float) $commission * $qty;
+	}
+	return $price;
+}
 
 function main_process(){
 
@@ -143,6 +155,11 @@ function main_process(){
 	add_filter( 'woocommerce_product_backorders_allowed', '__return_true' );// has_enough_stock()
 	add_filter( 'woocommerce_product_backorders_require_notification', '__return_false' );
 	
+
+	if ( !empty( $settings['marketplace_mode'] ) && class_exists('Dokan_Pro', false) ) {
+		add_filter( 'woocommerce_get_price_excluding_tax', __NAMESPACE__ .'\set_price_to_admin_commission', 10, 3 );
+	}
+
 	// echo ini_get('max_execution_time');
 	// ini_set('max_execution_time',300);
 	// echo ini_get('max_execution_time');
@@ -179,13 +196,17 @@ function main_process(){
 	if ( $bands ) :
 
 	$vendors = [];
-	if ( !empty( $settings['use_vendor_settings'] ) ) {
+	if ( !empty( $settings['marketplace_mode'] ) ) {
 		$vendor_ids = get_users(['meta_key' => 'mnml_bandcamp_woo', 'fields' => ['ID','user_email'] ]);
 		if ( $vendor_ids ) {
 			foreach($vendor_ids as $vid) {
 				$meta = get_user_meta($vid->ID,'mnml_bandcamp_woo',true);
-				if ( $meta['band_id'] )
-					$vendors[ $meta['band_id'] ] = (object) (['user_id' => $vid->ID, 'email' => $vid->user_email ] + $meta);
+				if ( $meta['band_id'] ) {
+					$band_ids = explode(',', str_replace(' ','', $meta['band_id'] ) );
+					foreach( $band_ids as $bid ) {
+						$vendors[ $bid ] = (object) (['user_id' => $vid->ID, 'email' => $vid->user_email ] + $meta);
+					}
+				}
 			}
 		}
 	}
@@ -352,14 +373,16 @@ function make_woo_order( $data ) {
 	// else {
 	// 	$order->set_customer_id( 1 );
 	// }
-
-    if ( isset($data['source']) && $data['source'] === 'import' ) {
-        $order->set_payment_method('Import');
-	    $order->set_payment_method_title('Import (credit)');
-    } else {
-    	$order->set_payment_method('Bandcamp');
-	    $order->set_payment_method_title('Bandcamp (credit)');
-    }
+	
+	if ( empty( $settings['marketplace_mode'] ) ) {
+		if ( isset($data['source']) && $data['source'] === 'import' ) {
+			$order->set_payment_method('Import');
+			$order->set_payment_method_title('Import (credit)');
+		} else {
+			$order->set_payment_method('Bandcamp');
+			$order->set_payment_method_title('Bandcamp (credit)');
+		}
+	}
 	$order->set_created_via( "Bandcamp Integration" );
 	// $order->set_currency('EUR');// defaults to get_woocommerce_currency()
 	// $order->set_prices_include_tax( 'yes' === get_option( 'woocommerce_prices_include_tax' ) );
@@ -488,15 +511,48 @@ function make_woo_order( $data ) {
 	}
 
 	$order->calculate_totals();
-	$order->update_status( 'processing', 'Imported order' );
+	if ( !empty( $settings['marketplace_mode'] ) ) {
+		$order->update_status( 'pending', 'Imported order' );
+	} else {
+		$order->update_status( 'processing', 'Imported order' );
+	}
 
 	$order_id = $order->save();
+
+	if ( !empty( $settings['marketplace_mode'] ) ) {
+		dokan_sync_insert_order( $order_id );// Dokan has a custom order table in the db for showing orders in vendor dashboard. See /dokan-lite/includes/Order/functions.php
+		send_payment_email( $order );
+	}
 
 	log( "{$data['shipping']['shipping_first_name']} {$data['shipping']['shipping_last_name']} — created order $order_id" );
 
 	wbi_debug( wc_get_notices(), 'notices' );
 
 	return $order_id;
+}
+
+
+function send_payment_email( $order ) {
+	// $link = esc_url( $order->get_checkout_payment_url() );
+	// $name = esc_html( $order->get_formatted_billing_full_name() );
+	// $email = $order->get_billing_email();
+	// not sure if this is a better way... used here: https://github.com/woocommerce/woocommerce/blob/aaef7f7a65856e952fb8abd3e4c350f3c802e623/plugins/woocommerce/includes/admin/meta-boxes/class-wc-meta-box-order-data.php#L319
+	// if ( $order->get_user_id() ) {
+	// 	$user_id  = absint( $order->get_user_id() );
+	// 	$customer = new WC_Customer( $user_id );
+	// 	$name = $customer->get_first_name() . ' ' . $customer->get_last_name();
+	// 	$email = $customer->get_email();
+	// }
+	// $body = "";
+	// do_action( 'woocommerce_before_resend_order_emails', $order, 'customer_invoice' );
+
+	// Send the customer invoice email.
+	// via https://github.com/woocommerce/woocommerce/blob/f9a27d380f66debf4b3b9541b996037cbebe18ba/plugins/woocommerce/includes/admin/meta-boxes/class-wc-meta-box-order-actions.php#L131
+	WC()->payment_gateways();
+	WC()->shipping();
+	WC()->mailer()->customer_invoice( $order );
+	// $order->add_order_note( __( 'Order details manually sent to customer.', 'woocommerce' ), false, true );
+	// do_action( 'woocommerce_after_resend_order_email', $order, 'customer_invoice' );
 }
 
 /**
@@ -837,7 +893,7 @@ function notification_message($order){
 	
 	$settings = get_option('mnmlbc2wc');// global setting
 	
-	if ( !empty ( $settings['use_vendor_settings'] ) ) {
+	if ( !empty ( $settings['marketplace_mode'] ) ) {
 		if ( $user_id = $order->get_customer_id() ) {
 			$settings = get_user_meta( $user_id, 'mnml_bandcamp_woo', true );// per-user setting
 		} else {
@@ -1203,16 +1259,29 @@ function settings_page() {
 	<div>
 		<button class=button onclick="var t=this,x=new XMLHttpRequest;t.textContent='working...';x.open('GET','<?php echo $url.'i'; ?>'),<?php echo $nonce; ?>,x.onload=function(){t.textContent=JSON.parse(x.response).terse},x.send()">Run Import</button>
 	</div>
-	<form onsubmit="event.preventDefault();var t=this,b=t.querySelector('button'),x=new XMLHttpRequest;x.open('POST','<?php echo $url.'s'; ?>'),<?php echo $nonce; ?>,x.onload=function(){b.textContent=JSON.parse(x.response)},x.send(new FormData(t))">
-	<p><button class=button-primary>Save Changes</button>
+	<form onsubmit="event.preventDefault();var t=this,b=t.querySelector('.button-primary'),x=new XMLHttpRequest;x.open('POST','<?php echo $url.'s'; ?>'),<?php echo $nonce; ?>,x.onload=function(){b.innerText=JSON.parse(x.response);setTimeout(function(){b.innerText='Save Changes'},9000)},x.send(new FormData(t))">
 	<?php
 	
-	$main = array_fill_keys(['client_id','client_secret','serve_tokens','fetch_tokens_url','dont_calculate_shipping','combine_orders','assign_orders_to','use_vendor_settings','bands_include','bands_exclude','exclude_countries','include_countries','notification_message'],['type' => 'text']);
+	$main = array_fill_keys([
+		'client_id','client_secret',
+		'serve_tokens','fetch_tokens_url',
+		'marketplace_mode',
+		'global_settings',
+		'dont_calculate_shipping',
+		'combine_orders',
+		'assign_orders_to',
+		'bands_include','bands_exclude','exclude_countries','include_countries',
+		'notification_message',
+		'global_settings_end',
+	], ['type' => 'text']);
+	$main['global_settings'] = ['type' => 'section', 'show' => ['marketplace_mode' => 'empty'] ];
+	$main['global_settings_end'] = ['type' => 'section_end'];
 	$main['serve_tokens'] = ['type' => 'checkbox', 'desc' => "If using the same API key on multiple sites, one site must be the master and serve API tokens to the rest.  This option sets the master site."];
 	$main['fetch_tokens_url']['desc'] = "If this is a non-master site which must fetch tokens for a shared API key, set this to the URL of the master site (the site which as the above option checked).";
+	$main['fetch_tokens_url']['show'] = ['serve_tokens' => 'empty'];
+	$main['marketplace_mode'] = ['type' => 'checkbox', 'desc' => "For merch.is: use vendor profiles for settings, replace item cost with Admin Commission field, mark orders as pending and send invoice emails"];
 	$main['dont_calculate_shipping'] = ['type' => 'checkbox', 'desc' => "just set shipping cost to 0"];
 	$main['combine_orders'] = ['type' => 'checkbox', 'desc' => "merge seperate orders with same shipping address & name  (This will pause all orders by anyone who has ordered a pre-order item)"];
-    $main['use_vendor_settings'] = ['type' => 'checkbox', 'desc' => "Disable global options below.  Use per-user options found in the user's profile.  Only import orders for bandcamp IDs that have been added to a user profile."];
 	$main['bands_include']['desc'] = "import these bands only (bandcamp band id numbers, comma separated)";
 	$main['bands_exclude']['desc'] = "exclude these bands (bandcamp band id numbers, comma separated)";
 	$main['exclude_countries']['desc'] = "exclude these countries (2-letter country codes, comma seperated)";
@@ -1220,68 +1289,111 @@ function settings_page() {
 	$main['notification_message'] = ['type' => 'textarea', 'desc' => "optional message that Bandcamp will send to the customer when you mark it as shipped.  Use %name% to insert the customer’s name."];
 	$main['assign_orders_to'] = ['callback' => 'bc2wc_assign_order_to'];
 	
-	$address = array_fill_keys(['billing_first_name','billing_last_name','billing_phone','billing_email','billing_address_1','billing_address_2','billing_city','billing_state','billing_postcode','billing_country','billing_vat_number'],['type' => 'text']);
+	$address = array_fill_keys([
+		'address_section','billing_first_name','billing_last_name','billing_phone','billing_email','billing_address_1','billing_address_2',
+		'billing_city','billing_state','billing_postcode','billing_country','billing_vat_number','address_section_end',
+	], ['type' => 'text']);
     $address['billing_country'] = ['type' => 'select', 'options' => WC()->countries->get_countries() ];
+	$address['address_section'] = ['type' => 'section', 'show' => ['marketplace_mode' => 'empty'] ];
+	$address['address_section_end'] = ['type' => 'section_end'];
     
 	$options = [
 		'mnmlbc2wc' => $main,
 		'mnmlbc2wc_address' => $address
 	];
+
+	$values = [];
+	foreach ( $options as $g => $fields ) {
+		$values += get_option( $g, [] );
+	}
 	
+	$script = '';
 	echo '<table class=form-table>';
 	foreach ( $options as $g => $fields ) {
-		$values = get_option($g);
+		// $values = get_option($g);
 		echo "<input type=hidden name='{$g}[x]' value=1>";// hidden field to make sure things still update if all options are empty (defaults)
 		foreach ( $fields as $k => $f ) {
+			if ( !empty( $f['before'] ) ) echo "<tr><th>" . $f['before'];
 			$v = isset( $values[$k] ) ? $values[$k] : '';
 			$l = isset( $f['label'] ) ? $f['label'] : str_replace( '_', ' ', $k );
 			$size = !empty( $f['size'] ) ? $f['size'] : 'regular';
-			echo "<tr id='row-{$g}-{$k}'><th><label for='{$g}-{$k}'>{$l}</label><td>";
+			$hide = '';
+			if ( !empty( $f['show'] ) ) {
+				if ( is_string( $f['show'] ) ) $f['show'] = [ $f['show'] => 'any' ];
+				foreach( $f['show'] as $target => $cond ) {
+					$hide = " style='display:none'";
+					$script .= "\ndocument.querySelector('#tr-{$target}').addEventListener('change', function(e){";
+					if ( $cond === 'any' ) {
+						$script .= "if( e.target.checked !== false && e.target.value )";
+						if ( !empty( $values[$target] ) ) $hide = "";
+					}
+					elseif ( $cond === 'empty' ) {
+						$script .= "if( e.target.checked === false || !e.target.value )";
+						if ( empty( $values[$target] ) ) $hide = "";
+					}
+					else {
+						$script .= "if( !!~['". implode( "','", (array) $cond ) ."'].indexOf(e.target.value) && e.target.checked!==false)";
+						if ( !empty( $values[$target] ) && in_array( $values[$target], (array) $cond ) ) $hide = "";
+					}
+					$script .= "{document.querySelector('#tr-{$k}').style.display='revert'}";
+					$script .= "else{document.querySelector('#tr-{$k}').style.display='none'}";
+					$script .= "});";
+				}
+			}
+			if ( empty( $f['type'] ) ) $f['type'] = !empty( $f['options'] ) ? 'radio' : 'checkbox';// checkbox is default
+
+			if ( $f['type'] === 'section' ) { echo "<tbody id='tr-{$k}' {$hide}>"; continue; }
+			elseif ( $f['type'] === 'section_end' ) { echo "</tbody>"; continue; }
+			else echo "<tr id=tr-{$k} {$hide}><th>";
+			
 			if ( !empty( $f['callback'] ) && function_exists( __NAMESPACE__ .'\\'. $f['callback'] ) ) {
-                call_user_func( __NAMESPACE__ .'\\'. $f['callback'], $g, $k, $v, $f );
+				echo "<label for='{$g}-{$k}'>{$l}</label><td>";
+				call_user_func( __NAMESPACE__ .'\\'. $f['callback'], $g, $k, $v, $f );
 	        } else {
-    			switch ( $f['type'] ) {
-    				case 'textarea':
-    					echo "<textarea id='{$g}-{$k}' name='{$g}[{$k}]' placeholder='' rows=8 class={$size}-text>{$v}</textarea>";
-    					break;
-    				case 'checkbox':
-    					echo "<input id='{$g}-{$k}' name='{$g}[{$k}]'"; if ( $v ) echo " checked"; echo " type=checkbox >";
-    					break;
-    				case 'number':
-    					$size = !empty( $f['size'] ) ? $f['size'] : 'small';
-    					echo "<input id='{$g}-{$k}' name='{$g}[{$k}]' placeholder='' value='{$v}' class={$size}-text type=number>";
-    					break;
-    				case 'select':
-    				    if ( !empty( $f['options'] ) && is_array( $f['options'] ) ) {
-        				    echo "<select id='{$g}-{$k}' name='{$g}[{$k}]'>";
-        				    echo "<option value=''></option>";// placeholder
-                            foreach ( $f['options'] as $key => $value ) {
-                        		echo "<option value='{$key}'" . selected( $v, $key, false ) . ">{$value}</option>";
-                        	}
-        				    echo "</select>";
-    				    }
-    				    break;
-    				case 'text':
-    				default:
-    					echo "<input id='{$g}-{$k}' name='{$g}[{$k}]' placeholder='' value='{$v}' class={$size}-text>";
-    					break;
-    			}
-	        }
-			if ( !empty( $f['desc'] ) ) echo "<p class=description>". $f['desc'];
+				switch ( $f['type'] ) {
+					case 'textarea':
+						echo "<label for='{$g}-{$k}'>{$l}</label><td><textarea id='{$g}-{$k}' name='{$g}[{$k}]' placeholder='' rows=8 class={$size}-text>{$v}</textarea>";
+						break;
+					case 'number':
+						$size = !empty( $f['size'] ) ? $f['size'] : 'small';
+						echo "<label for='{$g}-{$k}'>{$l}</label><td><input id='{$g}-{$k}' name='{$g}[{$k}]' placeholder='' value='{$v}' class={$size}-text type=number>";
+						break;
+					case 'radio':
+						if ( !empty( $f['options'] ) && is_array( $f['options'] ) ) {
+							echo "{$l}<td>";
+							foreach ( $f['options'] as $ov => $ol ) {
+								if ( ! is_string( $ov ) ) $ov = $ol;
+								echo "<label><input name='{$g}[{$k}]' value='{$ov}'"; if ( $v == $ov ) echo " checked"; echo " type=radio>{$ol}</label> ";
+							}
+						}
+						break;
+					case 'select':
+						if ( !empty( $f['options'] ) && is_array( $f['options'] ) ) {
+							echo "<label for='{$g}-{$k}'>{$l}</label><td><select id='{$g}-{$k}' name='{$g}[{$k}]'>";
+							echo "<option value=''></option>";// placeholder
+							foreach ( $f['options'] as $key => $value ) {
+								echo "<option value='{$key}'" . selected( $v, $key, false ) . ">{$value}</option>";
+							}
+							echo "</select>";
+						}
+						break;
+					case 'text':
+						echo "<label for='{$g}-{$k}'>{$l}</label><td><input id='{$g}-{$k}' name='{$g}[{$k}]' placeholder='' value='{$v}' class={$size}-text>";
+						break;
+					case 'checkbox':
+					default:
+						echo "<label for='{$g}-{$k}'>{$l}</label><td><input id='{$g}-{$k}' name='{$g}[{$k}]'"; if ( $v ) echo " checked"; echo " type=checkbox >";
+						break;
+				}
+			}
+			if ( !empty( $f['desc'] ) ) echo "&nbsp; " . $f['desc'];
 		}
 	}
+	if ( $script ) echo "<script>$script</script>";
 	echo '</table>';
 
-	?>
+	?><p><button class=button-primary>Save Changes</button>
 	</form>
-	<script>
-	function vendorToggle(){
-		var c=document.querySelector('#mnmlbc2wc-use_vendor_settings').checked ? "none" : "";
-		document.querySelectorAll('[id^=row-mnmlbc2wc-bands_],[id^=row-mnmlbc2wc_address],[id=row-mnmlbc2wc-exclude_countries],[id=row-mnmlbc2wc-include_countries],[id=row-mnmlbc2wc-notification_message]').forEach(function(e){e.style.display=c});
-	}
-	document.querySelector('#mnmlbc2wc-use_vendor_settings').addEventListener('change',vendorToggle);
-	vendorToggle();
-	</script>
 </div>
 <?php
 }
