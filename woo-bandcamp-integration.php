@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2022-12-15 don't retroactively assign orders to show owner
+Version:     2022-12-16 fix cron
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -12,17 +12,42 @@ defined('ABSPATH') || exit;
 
 // include( __DIR__ . "/import.php" );
 
-// add_action( 'mnmlbc2wc_main_cron_hook', __NAMESPACE__ .'\main_process' );
-// if ( ! wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
-//     wp_schedule_event( strtotime('+ 1 minute'), 'hourly', 'mnmlbc2wc_main_cron_hook' );
-// }
+// TEMP
+if ( ! wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
+	wp_schedule_event( strtotime('+ 1 minute'), 'hourly', 'mnmlbc2wc_main_cron_hook' );
+}
+
+add_action( 'mnmlbc2wc_main_cron_hook', __NAMESPACE__ .'\main_process' );
 // wp_unschedule_event( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ), 'mnmlbc2wc_main_cron_hook' );
+function setup_cron() {
+	if ( ! wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
+		wp_schedule_event( strtotime('+ 1 minute'), 'threehours', 'mnmlbc2wc_main_cron_hook' );
+	}
+}
 
 // wp_unschedule_event( wp_next_scheduled( 'mnmlbc2wc_retry_cron_hook' ), 'mnmlbc2wc_retry_cron_hook' );
 // add_action( 'mnmlbc2wc_retry_cron_hook', __NAMESPACE__ .'\retry_add_tracking' );
 // if ( ! wp_next_scheduled( 'mnmlbc2wc_retry_cron_hook' ) ) {
 // 	wp_schedule_event( strtotime('+ 30 seconds'), 'twicedaily', 'mnmlbc2wc_retry_cron_hook' );
 // }
+
+function add_cron_interval($schedules) {
+	$schedules['threehours'] = [
+		'interval' => 3 * HOUR_IN_SECONDS,
+		'display'  => __( 'Every 3 Hours' )
+	];
+	return $schedules;
+}
+add_filter( 'cron_schedules', __NAMESPACE__ .'\add_cron_interval');
+
+register_activation_hook( __FILE__, __NAMESPACE__ .'\setup_cron' );
+
+register_deactivation_hook( __FILE__, __NAMESPACE__ .'\remove_cron' );
+
+function remove_cron() {
+    wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
+}
+
 
 function vendor_address( $vendor )
 {
@@ -85,6 +110,11 @@ function main_process(){
 	// ini_set( 'display_errors', 0 );
 	ini_set( 'log_errors', 1 );
 	ini_set( 'error_log', __DIR__ . '/php_errors.log' );
+
+	// TEMP
+	wp_unschedule_event( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ), 'mnmlbc2wc_main_cron_hook' );
+	setup_cron();
+
 
 	$settings = $GLOBALS['bc2wc_settings'] = get_option('mnmlbc2wc');
 
