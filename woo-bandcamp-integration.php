@@ -1259,7 +1259,7 @@ function settings_page() {
 	<div>
 		<button class=button onclick="var t=this,x=new XMLHttpRequest;t.textContent='working...';x.open('GET','<?php echo $url.'i'; ?>'),<?php echo $nonce; ?>,x.onload=function(){t.textContent=JSON.parse(x.response).terse},x.send()">Run Import</button>
 	</div>
-	<form onsubmit="event.preventDefault();var t=this,b=t.querySelector('.button-primary'),x=new XMLHttpRequest;x.open('POST','<?php echo $url.'s'; ?>'),<?php echo $nonce; ?>,x.onload=function(){b.innerText=JSON.parse(x.response);setTimeout(function(){b.innerText='Save Changes'},9000)},x.send(new FormData(t))">
+	<form onsubmit="event.preventDefault();var t=this,b=t.querySelector('.button-primary'),x=new XMLHttpRequest;x.open('POST','<?php echo $url.'s'; ?>'),<?php echo $nonce; ?>,x.onload=function(){b.innerText=JSON.parse(x.response);t.addEventListener('input',function(){b.innerText='Save Changes'})},x.send(new FormData(t))">
 	<?php
 	
 	$main = array_fill_keys([
@@ -1392,7 +1392,7 @@ function settings_page() {
 	if ( $script ) echo "<script>$script</script>";
 	echo '</table>';
 
-	?><div style="position:fixed;bottom:0;right:0;padding:24px;background:#f0f0f1"><button class=button-primary>Save Changes</button></div>
+	?><div style="position:fixed;bottom:0;left:0;right:0;padding:16px 0 16px 180px;z-index:1;background:#333b41"><button class=button-primary>Save Changes</button></div>
 	</form>
 </div>
 <?php
