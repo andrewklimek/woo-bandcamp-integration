@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-01-17 add 'woocommerce_variation_is_purchasable' = true
+Version:     2023-02-14 check log mod time to not run twice by accident
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -17,9 +17,9 @@ defined('ABSPATH') || exit;
  */
 
 // TEMP
-if ( ! wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
-	wp_schedule_event( strtotime('+ 1 minute'), 'hourly', 'mnmlbc2wc_main_cron_hook' );
-}
+// if ( ! wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
+// 	wp_schedule_event( strtotime('+ 1 minute'), 'hourly', 'mnmlbc2wc_main_cron_hook' );
+// }
 
 add_action( 'mnmlbc2wc_main_cron_hook', __NAMESPACE__ .'\main_process' );
 
@@ -129,7 +129,20 @@ function set_price_to_admin_commission( $price, $qty, $product ) {
 	return $price;
 }
 
-function main_process(){
+function main_process( $manual=false ) {
+
+	// I could probably use 'mnmlbc2wc_last_import' option below but I'm using it to check what orders were imported and I'm not 100% sure I can trust BC timestamps against the server time.
+	$last_run_time = @filemtime( __DIR__ . '/log.txt' );
+	if ( $last_run_time ) {
+		$min_seconds_since_last_run = $manual ? 300 : 1800;
+		$seconds_since_last_run = time() - $last_run_time;
+		if ( $seconds_since_last_run < $min_seconds_since_last_run ) {
+			wbi_debug('ran too recently');
+			return 'import ran too recently.  Try again in ' . ( $min_seconds_since_last_run - $seconds_since_last_run ) . ' seconds.';
+		}
+	}
+	touch( __DIR__ . '/log.txt' );
+
 
 	$log_errors_setting = ini_get( 'log_errors' );
 	$error_log_setting = ini_get( 'error_log' );
@@ -139,8 +152,8 @@ function main_process(){
 	ini_set( 'error_log', __DIR__ . '/php_errors.log' );
 
 	// TEMP
-	remove_cron();
-	add_cron();
+	// remove_cron();
+	// add_cron();
 
 
 	$settings = $GLOBALS['bc2wc_settings'] = get_option('mnmlbc2wc');
@@ -1156,9 +1169,9 @@ function register_api_endpoint() {
 
 function api_process( $request ) {
 	// $data = $request->get_params();// in future, may want to get specific band ids on request
-	$report = main_process();
+	$report = main_process('manual');
 	$return = [ 'terse' => $report ];
-	$return['verbose'] = !empty( $GLOBALS['bc_wc_log'] ) ? $GLOBALS['bc_wc_log'] : 'nothing done';
+	$return['verbose'] = !empty( $GLOBALS['bc_wc_log'] ) ? $GLOBALS['bc_wc_log'] : ( $report ? $report : 'nothing done' );
 	return $return;
 }
 
