@@ -10,6 +10,10 @@ Author:     Andrew J Klimek
 */
 defined('ABSPATH') || exit;
 
+// TESTING disable email
+// if ( !function_exists( 'wp_mail' ) ) { function wp_mail(){ return false; } }
+// add_filter( 'pre_wp_mail', '__return_false' );
+
 // include( __DIR__ . "/import.php" );
 
 /**
@@ -131,17 +135,29 @@ function set_price_to_admin_commission( $price, $qty, $product ) {
 
 function main_process( $manual=false ) {
 
-	// I could probably use 'mnmlbc2wc_last_import' option below but I'm using it to check what orders were imported and I'm not 100% sure I can trust BC timestamps against the server time.
-	$last_run_time = @filemtime( __DIR__ . '/log.txt' );
-	if ( $last_run_time ) {
-		$min_seconds_since_last_run = $manual ? 300 : 1800;
-		$seconds_since_last_run = time() - $last_run_time;
-		if ( $seconds_since_last_run < $min_seconds_since_last_run ) {
-			wbi_debug('ran too recently');
-			return 'import ran too recently.  Try again in ' . ( $min_seconds_since_last_run - $seconds_since_last_run ) . ' seconds.';
+	if ( file_exists( __DIR__ . '/importing' ) ) {
+		$execution_time = ini_get('max_execution_time');
+		if ( ! $execution_time ) $execution_time = 300;
+		if ( $execution_time > (time() - filemtime(__DIR__ .'/importing')) ) {
+			wbi_debug('an import is currently running');
+			return 'an import is currently running';
 		}
 	}
-	touch( __DIR__ . '/log.txt' );
+	touch( __DIR__ . '/importing' );
+
+	// I could probably use 'mnmlbc2wc_last_import' option below but I'm using it to check what orders were imported and I'm not 100% sure I can trust BC timestamps against the server time.
+	if ( ! $manual ) {
+		$last_run_time = @filemtime( __DIR__ . '/log.txt' );
+		if ( $last_run_time ) {
+			$min_seconds_since_last_run = 1800;//$manual ? 300 : 1800;
+			$seconds_since_last_run = time() - $last_run_time;
+			if ( $seconds_since_last_run < $min_seconds_since_last_run ) {
+				wbi_debug('ran too recently');
+				return 'import ran too recently.  Try again in ' . ( $min_seconds_since_last_run - $seconds_since_last_run ) . ' seconds.';
+			}
+		}
+	}
+	// touch( __DIR__ . '/log.txt' );
 
 
 	$log_errors_setting = ini_get( 'log_errors' );
@@ -268,6 +284,8 @@ function main_process( $manual=false ) {
 		$orders = get_orders( $bid, $token );
 		// update_option('mnmlbc2wc_test_data', $orders, false );
 
+		// $orders = array_slice( $orders, 0, 2 );// TESTING
+
 		foreach ( $orders as $data ) {
 
 			wbi_debug("{$data->ship_to_name}");
@@ -288,8 +306,6 @@ function main_process( $manual=false ) {
 				continue;
 			}
 			
-			// if ( $count === 10 ) continue;// test
-
 			if ( strtotime( $data->order_date ) <= $last_import[$bid] ) {
 				// this would seem to indicate an order that was already imported but not yet shipped
 				// but it's possible the order was skipped last time, eg because the product wasn't entered in Woo yet... 
@@ -341,10 +357,13 @@ function main_process( $manual=false ) {
 
 	endif; // bands
 
-	return $report;
-
+	
 	ini_set( 'log_errors', $log_errors_setting );
 	ini_set( 'error_log', $error_log_setting );
+
+	unlink( __DIR__ . '/importing' );
+
+	return $report;
 }
 
 
