@@ -620,10 +620,10 @@ function prepare_data_for_woo_order( $data, $o ) {
 	
 	// check cache
 	if ( isset( $GLOBALS['bc_wc_ids'][ $package_id ] ) ) {
-		wbi_debug("got from cache");
+		// wbi_debug("got from cache");
 		$product_id = $GLOBALS['bc_wc_ids'][ $package_id ];
 		if ( ! is_numeric( $product_id ) ) {
-			wbi_debug("Couldnt find product ID for {$data->item_name} (via cached result)");
+			// wbi_debug("Couldnt find product ID for {$data->item_name} (via cached result)");
 			$o[ $order_key ]['missing_item'] = $product_id;
 			return $o;
 		}
@@ -631,7 +631,7 @@ function prepare_data_for_woo_order( $data, $o ) {
 		// run function with a few ways to try to find it
 		$product_id = find_woo_product( $data );
 		if ( ! $product_id ) {
-			wbi_debug("Couldnt find product ID for $data->item_name");
+			// wbi_debug("Couldnt find product ID for $data->item_name");
 			$o[ $order_key ]['missing_item'] = "{$data->ship_to_name} — couldnt find product {$data->item_name} {$data->sku}";
 			$GLOBALS['bc_wc_ids'][ $package_id ] = $o[ $order_key ]['missing_item'];
 			return $o;
@@ -692,7 +692,7 @@ function prepare_data_for_woo_order( $data, $o ) {
  * https://developer.wordpress.org/reference/functions/get_page_by_title/
  */
 function find_woo_product( $data ) {
-    wbi_debug( str_replace( ["   ", "\n"], [""," "], var_export( $data, true ) ) );
+    // wbi_debug( str_replace( ["   ", "\n"], [""," "], var_export( $data, true ) ) );
 
 	// try getting by sku
 	$sku = $data->sku;
@@ -700,7 +700,7 @@ function find_woo_product( $data ) {
         // $product_id = $wpdb->get_var( "SELECT post_id FROM $wpdb->postmeta WHERE meta_key='_sku' AND meta_value='{$sku}' LIMIT 1" );
     	$product_id = wc_get_product_id_by_sku( $sku );
     	if ( $product_id ) {
-    	    wbi_debug("Found product $product_id for sku $sku");
+    	    // wbi_debug("Found product $product_id for sku $sku");
     	    return $product_id;
     	}
 	}
@@ -724,7 +724,7 @@ function find_woo_product( $data ) {
 	// they dont show "album name:" in the bc fullfillment dash, btu they DO have that in the API title, if the merch included an album download.
 	if ( ! $results && !empty( $data->option ) && strpos( $product, ': ' ) ) {
 		$product = explode( ': ', $product, 2 )[1];
-		// wbi_debug($product);
+		wbi_debug($product);
 		$results = $wpdb->get_col( "SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key='bandcamp_title' AND meta_value='". esc_sql($product) ."' LIMIT 2" );
 	}
 
@@ -735,7 +735,7 @@ function find_woo_product( $data ) {
 		log("multiple products had the title... couldn't match it. {$product}");
 		return false;
 	} else {
-		wbi_debug("Found product {$results[0]} by matching bandcamp product title {$product}");
+		// wbi_debug("Found product {$results[0]} by matching bandcamp product title {$product}");
     	$product_id = $results[0];
 	}
 
@@ -754,7 +754,7 @@ function find_woo_product( $data ) {
 			log("multiple products had the option... couldn't match it. {$opt} - {$product}");
 			return false;
 		} else {
-			wbi_debug("Found product {$results[0]} by matching bandcamp product title {$product} AND option {$opt}");
+			// wbi_debug("Found product {$results[0]} by matching bandcamp product title {$product} AND option {$opt}");
 			$product_id = $results[0];
 		}
 	}
