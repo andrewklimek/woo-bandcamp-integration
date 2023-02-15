@@ -139,8 +139,8 @@ function main_process( $manual=false ) {
 		$execution_time = ini_get('max_execution_time');
 		if ( ! $execution_time ) $execution_time = 300;
 		if ( $execution_time > (time() - filemtime(__DIR__ .'/importing')) ) {
-			wbi_debug('an import is currently running');
-			return 'an import is currently running';
+			wbi_debug('another import is currently running!');
+			return 'another import is currently running!';
 		}
 	}
 	touch( __DIR__ . '/importing' );
@@ -163,14 +163,13 @@ function main_process( $manual=false ) {
 	$log_errors_setting = ini_get( 'log_errors' );
 	$error_log_setting = ini_get( 'error_log' );
 	error_reporting( E_ALL );
-	// ini_set( 'display_errors', 0 );
+	ini_set( 'display_errors', 0 );// This seems important to not return errors from the API if display happens to be on.
 	ini_set( 'log_errors', 1 );
 	ini_set( 'error_log', __DIR__ . '/php_errors.log' );
 
 	// TEMP
 	// remove_cron();
 	// add_cron();
-
 
 	$settings = $GLOBALS['bc2wc_settings'] = get_option('mnmlbc2wc');
 
@@ -284,7 +283,7 @@ function main_process( $manual=false ) {
 		$orders = get_orders( $bid, $token );
 		// update_option('mnmlbc2wc_test_data', $orders, false );
 
-		// $orders = array_slice( $orders, 0, 2 );// TESTING
+		// $orders = array_slice( $orders, 0, 9 );// TESTING
 
 		foreach ( $orders as $data ) {
 
@@ -609,15 +608,21 @@ function prepare_data_for_woo_order( $data, $o ) {
 	$package_id = !empty( $data->option_id ) ? $data->option_id : $data->package_id;
 	
 	// check cache
-	if ( !empty( $GLOBALS['bc_wc_ids'][ $package_id ] ) ) {
+	if ( isset( $GLOBALS['bc_wc_ids'][ $package_id ] ) ) {
 		wbi_debug("got from cache");
 		$product_id = $GLOBALS['bc_wc_ids'][ $package_id ];
+		if ( ! is_numeric( $product_id ) ) {
+			wbi_debug("Couldnt find product ID for {$data->item_name} (via cached result)");
+			$o[ $order_key ]['missing_item'] = $product_id;
+			return $o;
+		}
 	} else {
 		// run function with a few ways to try to find it
 		$product_id = find_woo_product( $data );
 		if ( ! $product_id ) {
 			wbi_debug("Couldnt find product ID for $data->item_name");
 			$o[ $order_key ]['missing_item'] = "{$data->ship_to_name} — couldnt find product {$data->item_name} {$data->sku}";
+			$GLOBALS['bc_wc_ids'][ $package_id ] = $o[ $order_key ]['missing_item'];
 			return $o;
 		}
 		
@@ -626,6 +631,7 @@ function prepare_data_for_woo_order( $data, $o ) {
 		if ( is_a( wc_get_product( $product_id ), '\WC_Product_Variable' ) ) {
 		   	wbi_debug("Got parent product of variable product for $data->item_name sku $data->sku please try again.");
 			$o[ $order_key ]['missing_item'] = "{$data->ship_to_name} — product was matched to parent variable product {$data->item_name} {$data->sku}";
+			$GLOBALS['bc_wc_ids'][ $package_id ] = $o[ $order_key ]['missing_item'];
 			return $o;
 		}
 
@@ -1191,6 +1197,7 @@ function api_process( $request ) {
 	$report = main_process('manual');
 	$return = [ 'terse' => $report ];
 	$return['verbose'] = !empty( $GLOBALS['bc_wc_log'] ) ? $GLOBALS['bc_wc_log'] : ( $report ? $report : 'nothing done' );
+	// wbi_debug($return);
 	return $return;
 }
 
