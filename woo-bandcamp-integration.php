@@ -145,7 +145,7 @@ function main_process( $manual=false ) {
 		$execution_time = ini_get('max_execution_time');
 		if ( ! $execution_time ) $execution_time = 300;
 		if ( $execution_time > (time() - filemtime(__DIR__ .'/importing')) ) {
-			wbi_debug('another import is currently running!');
+			// wbi_debug('another import is currently running!');
 			return 'another import is currently running!';
 		}
 	}
@@ -218,11 +218,11 @@ function main_process( $manual=false ) {
 	$report = "";
 
 	$token = auth();
-	wbi_debug("using token $token");
+	// wbi_debug("using token $token");
 
 	$bands = bands($token);
 	if ( ! $bands ) {// in case the token is somehow expired or invalid, force refresh of token and retry. this shouldnt happen, but just in case...
-		wbi_debug("try force refresh");
+		wbi_debug("token error, try force refresh");
 		$token = auth('refresh');
 		$bands = bands($token);
 	}
@@ -264,12 +264,12 @@ function main_process( $manual=false ) {
 			$vendor = false;
 			// only include these bands
 			if ( !empty($settings['bands_include']) && ! in_array( (string) $bid, explode(',', str_replace(' ','',$settings['bands_include'])), true ) ) {
-				wbi_debug("skipping band {$bid}");
+				// wbi_debug("skipping band {$bid}");
 				continue;
 			}
 			// don't include these bands
 			if ( !empty($settings['bands_exclude']) && in_array( (string) $bid, explode(',', str_replace(' ','',$settings['bands_exclude'])), true ) ) {
-				wbi_debug("skipping band {$bid}");
+				// wbi_debug("skipping band {$bid}");
 				continue;
 			}
 			$vendor_address = vendor_address('global');
@@ -293,21 +293,19 @@ function main_process( $manual=false ) {
 
 		foreach ( $orders as $data ) {
 
-			wbi_debug("{$data->ship_to_name}");
-
 			if ( $data->payment_state !== "paid" ) {
-				wbi_debug("Payment status is {$data->payment_state}");
+				wbi_debug("Payment status is {$data->payment_state} - {$data->ship_to_name}");
 				continue;// skip pending orders, right?
 			}
 
 			// skip countries the vendor ships to themselves.
 			// $data->ship_from_country_name !== "United States"
 			if ( $exclude_countries && in_array( $data->ship_to_country_code, $exclude_countries ) ) {
-				wbi_debug("from an excluded country");
+				wbi_debug("from an excluded country - {$data->ship_to_name}");
 				continue;
 			}
 			if ( $include_countries && ! in_array( $data->ship_to_country_code, $include_countries ) ) {
-				wbi_debug("not from an included country");
+				wbi_debug("not from an included country - {$data->ship_to_name}");
 				continue;
 			}
 			
@@ -317,15 +315,17 @@ function main_process( $manual=false ) {
 				// better check to see if the order was imported and if not, try again now
 				global $wpdb;
 				if ( $wpdb->get_var("SELECT post_id FROM $wpdb->postmeta WHERE meta_value='{$data->payment_id}' AND meta_key='bandcamp_id' LIMIT 1")) {
-					wbi_debug("skip because date is before last imported");
+					// wbi_debug("skip because date is before last imported");
 					continue;
 				} else {
-					wbi_debug("old order but not in the system yet... must have failed last time, try again now.");
+					// wbi_debug("old order but not in the system yet... must have failed last time, try again now.");
 				}
 			} else {
 				$last_import[$bid] = 0;
 				$order_date = $data->order_date;
 			}
+
+			// wbi_debug("{$data->ship_to_name}");
 
 			$prepared_orders = prepare_data_for_woo_order( $data, $prepared_orders );
 
@@ -395,9 +395,9 @@ function make_woo_order( $data ) {
 
 	$order = new \WC_Order();
 
-	wbi_debug( count($order->get_items()), "items in new order" );
+	// wbi_debug( count($order->get_items()), "items in new order" );
 	if ( count($order->get_items()) ) {
-		wbi_debug("new order already had items, clearing.");// this seemed to happen while testing... not sure if it would normally happen. products from user session I guess.
+		wbi_debug("new order already had items!!!!");// this seemed to happen while testing... not sure if it would normally happen. products from user session I guess.
 		$order->remove_order_items();
 	}
 
@@ -466,8 +466,8 @@ function make_woo_order( $data ) {
 	// $calc_ship = false;// if plugin setting "dont calculate shipping" is checked, cart will stay false. cart is only used to calculate shipping.
 	if ( empty( $settings['dont_calculate_shipping'] ) ) {
 		// $calc_ship = true;
-		if ( is_null( WC()->cart ) ) {
-			wbi_debug('is_null( WC()->cart )');
+		if ( is_null( WC()->cart ) ) {// first run in a batch has no cart yet
+			// wbi_debug('is_null( WC()->cart ) ? YES');
 			// add_filter( 'woocommerce_session_handler', function( $handler ) {
 			// 	if ( class_exists( 'WC_Session' ) ) {
 			// 		include __DIR__ . '/sessionhandler.php';
@@ -480,10 +480,10 @@ function make_woo_order( $data ) {
 			wc_load_cart();
 		}
 		// $cart = new \WC_Cart();
-		if ( count( WC()->cart->get_cart() ) > 0 ) {
+		// if ( count( WC()->cart->get_cart() ) > 0 ) {// seems to always need emptying
 			WC()->cart->empty_cart();
-			wbi_debug("had to empty cart");
-		}
+			// wbi_debug("have to empty cart? YES");
+		// }
 		// wbi_debug(WC()->cart,'WC()->cart');
 	// }
 	// if ( $calc_ship ) {
@@ -496,16 +496,21 @@ function make_woo_order( $data ) {
 		// WC()->shipping()->reset_shipping();
 		// WC()->customer->set_billing_location( $data['billing']['billing_country'], $data['billing']['billing_state'], $data['billing']['billing_postcode'], $data['billing']['billing_city'] );
 		// if ( ! WC()->cart->get_customer()->has_shipping_address() ) {
-		wbi_debug( WC()->cart->get_customer()->get_shipping(), "new cart customer, before setting it" );
+		$get_city = WC()->cart->get_customer()->get_shipping_city();
+		if ( is_string( $get_city ) ) {
+			wbi_debug( "new cart instance has city: $get_city before setting it... and now we set it to {$data['shipping']['shipping_city']}" );
+		} else {
+			wbi_debug( $get_city, "get_city was not a string.");
+		}
 		WC()->customer->set_shipping_location( $data['shipping']['shipping_country'], $data['shipping']['shipping_state'], $data['shipping']['shipping_postcode'], $data['shipping']['shipping_city'] );
 		// WC()->customer->set_shipping_location( $data['shipping']['shipping_country'], $data['shipping']['shipping_state'], $data['shipping']['shipping_postcode'], $data['shipping']['shipping_city'] );
 		// }
 		// foreach ( $order->get_items() as $i ) WC()->cart->add_to_cart($i['product_id'], $i['qty']);
 		foreach ( $data['line_items'] as $item ) {
-			wbi_debug($item['product_id'],'$item[product_id]');
-			wbi_debug($item['quantity'],'$item[quantity]');
+			// wbi_debug($item['product_id'],'$item[product_id]');
+			// wbi_debug($item['quantity'],'$item[quantity]');
 			$result = WC()->cart->add_to_cart($item['product_id'], $item['quantity']);// variant ID is supposed to go in the 3rd param but the function accounts for it being 1st.
-			wbi_debug($result);
+			// wbi_debug($result);
 			if ( ! $result ) {
 			   wbi_debug( end( wc_get_notices('error') )['notice'] );
 			}
@@ -523,7 +528,7 @@ function make_woo_order( $data ) {
 				break;
 			}
 		}
-		wbi_debug($shipping[0]['destination'], "calculate shipping array destination");
+		// wbi_debug($shipping[0]['destination'], "calculate shipping array destination");
 		// wbi_debug(WC()->cart->get_cart(), "get cart 2");
 		if ( ! $rate ) {
 			wbi_debug('couldnt find rate with the right label');
@@ -563,7 +568,7 @@ function make_woo_order( $data ) {
 
 	log( "{$data['shipping']['shipping_first_name']} {$data['shipping']['shipping_last_name']} — created order $order_id" );
 
-	wbi_debug( wc_get_notices(), 'notices' );
+	if ( $notices = wc_get_notices() ) wbi_debug( $notices, 'notices' );
 
 	return $order_id;
 }
@@ -646,7 +651,7 @@ function prepare_data_for_woo_order( $data, $o ) {
     		// $GLOBALS['bc_wc_ids']['updated'] = true;// flag to update in database at the end
         // }
 	}
-	wbi_debug("product id is " . $product_id);
+	// wbi_debug("product id is " . $product_id);
 	
 	if ( empty( $o[ $order_key ]['shipping'] ) ) {
 
@@ -719,13 +724,12 @@ function find_woo_product( $data ) {
 	// they dont show "album name:" in the bc fullfillment dash, btu they DO have that in the API title, if the merch included an album download.
 	if ( ! $results && !empty( $data->option ) && strpos( $product, ': ' ) ) {
 		$product = explode( ': ', $product, 2 )[1];
-		wbi_debug($product);
+		// wbi_debug($product);
 		$results = $wpdb->get_col( "SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key='bandcamp_title' AND meta_value='". esc_sql($product) ."' LIMIT 2" );
 	}
 
 	if ( ! $results ) {
 		log("couldnt match product to bandcamp title {$product}");
-		wbi_debug($results);
 		return false;
 	} elseif ( count( $results ) > 1  ) {
 		log("multiple products had the title... couldn't match it. {$product}");
@@ -1072,7 +1076,7 @@ function auth( $force_refresh=false, $return_array=false ){
 
 	if ( $token ) {
 		if ( $token['expires'] > time() && ! $force_refresh ) {
-			wbi_debug( "using saved token" );
+			// wbi_debug( "using saved token" );
 			return $return_array ? $token : $token['access'];
 		}// else
 		wbi_debug( "refreshing" );
@@ -1084,7 +1088,7 @@ function auth( $force_refresh=false, $return_array=false ){
 	if ( ! empty( $settings['fetch_tokens_url'] ) ) {
 		$token = fetch_token();
 		if ( $token ) {
-			wbi_debug("using saved token from remote site");
+			// wbi_debug("using saved token from remote site");
 			return $return_array ? $token : $token['access'];
 		} else {
 			wbi_debug("tried but failed to get token from remote site.");
