@@ -196,11 +196,11 @@ function main_process( $manual=false ) {
 	$GLOBALS['bc_wc_ids'] = [];// turned off for now
 	// cache a lookup table to match bandcamp product IDs to woocommerce product IDs.
 	// TODO: clear cache when a product is deleted
-// 	$cache_ver = "220402";
-// 	$GLOBALS['bc_wc_ids'] = get_option( 'bandcamp_woo_id_pairs', [] );
-// 	if ( empty($GLOBALS['bc_wc_ids']['v']) || $GLOBALS['bc_wc_ids']['v'] !== $cache_ver ) {
-// 		$GLOBALS['bc_wc_ids'] = [ 'v' => $cache_ver ];
-// 	}
+	// 	$cache_ver = "220402";
+	// 	$GLOBALS['bc_wc_ids'] = get_option( 'bandcamp_woo_id_pairs', [] );
+	// 	if ( empty($GLOBALS['bc_wc_ids']['v']) || $GLOBALS['bc_wc_ids']['v'] !== $cache_ver ) {
+	// 		$GLOBALS['bc_wc_ids'] = [ 'v' => $cache_ver ];
+	// 	}
 
 	$exclude_countries = empty( $settings['exclude_countries'] ) ? [] : explode(',', str_replace(' ','', $settings['exclude_countries'] ) );
 	$include_countries = empty( $settings['include_countries'] ) ? [] : explode(',', str_replace(' ','', $settings['include_countries'] ) );
