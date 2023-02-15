@@ -178,7 +178,7 @@ function main_process( $manual=false ) {
 	// echo ini_get('max_execution_time');
 	// return;
 
-	$GLOBALS['bc_wc_ids'] = false;// turned off for now
+	$GLOBALS['bc_wc_ids'] = [];// turned off for now
 	// cache a lookup table to match bandcamp product IDs to woocommerce product IDs.
 	// TODO: clear cache when a product is deleted
 // 	$cache_ver = "220402";
@@ -334,10 +334,10 @@ function main_process( $manual=false ) {
 	if ( $update_last_import ) update_option( 'mnmlbc2wc_last_import', $last_import, false );
 	
 	// save ID lookup cache if updated during this run
-	if ( !empty( $GLOBALS['bc_wc_ids']['updated'] ) ) {
-		unset( $GLOBALS['bc_wc_ids']['updated'] );
-		update_option( 'bandcamp_woo_id_pairs', $GLOBALS['bc_wc_ids'], 'no' );
-	}
+	// if ( !empty( $GLOBALS['bc_wc_ids']['updated'] ) ) {
+	// 	unset( $GLOBALS['bc_wc_ids']['updated'] );
+	// 	update_option( 'bandcamp_woo_id_pairs', $GLOBALS['bc_wc_ids'], 'no' );
+	// }
 
 	endif; // bands
 
@@ -610,10 +610,10 @@ function prepare_data_for_woo_order( $data, $o ) {
 			return $o;
 		}
 
-        if ( $GLOBALS['bc_wc_ids'] ) {
+        // if ( $GLOBALS['bc_wc_ids'] ) {
     		$GLOBALS['bc_wc_ids'][ $package_id ] = $product_id;// add new match to cache
-    		$GLOBALS['bc_wc_ids']['updated'] = true;// flag to update in database at the end
-        }
+    		// $GLOBALS['bc_wc_ids']['updated'] = true;// flag to update in database at the end
+        // }
 	}
 	wbi_debug("product id is " . $product_id);
 	
