@@ -30,12 +30,15 @@ defined('ABSPATH') || exit;
 add_action( 'mnmlbc2wc_main_cron_hook', __NAMESPACE__ .'\main_process' );
 
 function add_cron() {
+	wbi_debug("run add cron");
 	// TEMPORARY to get off of old cron system, transition to action scheduler
 	if ( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
 		wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
+		wbi_debug("cleared hook");
 	}
 	if ( false === as_has_scheduled_action( 'mnmlbc2wc_main_cron_hook' ) ) {
 		as_schedule_recurring_action( strtotime('+ 2 minutes'), (3 * HOUR_IN_SECONDS), 'mnmlbc2wc_main_cron_hook', [], __NAMESPACE__, true );
+		wbi_debug("set schedule");
 	}
 }
 
@@ -1927,8 +1930,10 @@ function show_log() {
 /* Debug */
 function wbi_debug( $var, $note='', $file='debug.log', $time='m-d H:i:s' ){
 	if ( $note ) $note = "***{$note}***\n";
-	ob_start();
-	var_dump($var);
-	$var = ob_get_clean();
+	if ( ! is_string( $var ) ) {
+		ob_start();
+		var_dump($var);
+		$var = ob_get_clean();
+	}
 	error_log("\n[". date($time) ."] ". $note . $var, 3, __DIR__ ."/". $file );
 }
