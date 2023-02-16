@@ -51,7 +51,7 @@ function add_cron() {
 		as_schedule_recurring_action( strtotime('+ 2 minutes'), (3 * HOUR_IN_SECONDS), 'bandcamp_woo_periodic_fetch', [], __NAMESPACE__, true );
 		wbi_debug("set schedule");
 	}
-	wbi_debug(as_get_scheduled_actions('bandcamp_woo_periodic_fetch'));
+	wbi_debug(as_get_scheduled_actions(['hook' => 'bandcamp_woo_periodic_fetch']));
 }
 
 // not needed if using action scheduler
