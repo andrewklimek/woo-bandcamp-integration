@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-02-14 check log mod time to not run twice by accident
+Version:     2023-02-16 transition cron
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -27,17 +27,28 @@ defined('ABSPATH') || exit;
 // 	wp_schedule_event( strtotime('+ 1 minute'), 'hourly', 'mnmlbc2wc_main_cron_hook' );
 // }
 
-add_action( 'mnmlbc2wc_main_cron_hook', __NAMESPACE__ .'\main_process' );
+add_action( 'bandcamp_woo_periodic_fetch', __NAMESPACE__ .'\main_process' );
+add_action( 'mnmlbc2wc_main_cron_hook', '__return_true' );
+
 
 function add_cron() {
-	wbi_debug("run add cron");
 	// TEMPORARY to get off of old cron system, transition to action scheduler
+	wbi_debug("run add cron");
+	if ( as_has_scheduled_action( 'mnmlbc2wc_main_cron_hook' ) ) {
+		as_unschedule_all_actions( 'mnmlbc2wc_main_cron_hook' );
+		wbi_debug("cleared AS hook");
+	}
 	if ( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
 		wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
-		wbi_debug("cleared hook");
+		wbi_debug("cleared WP hook");
 	}
-	if ( false === as_has_scheduled_action( 'mnmlbc2wc_main_cron_hook' ) ) {
-		as_schedule_recurring_action( strtotime('+ 2 minutes'), (3 * HOUR_IN_SECONDS), 'mnmlbc2wc_main_cron_hook', [], __NAMESPACE__, true );
+	if ( wp_next_scheduled( 'mnmlbc2wc_retry_cron_hook' ) ) {
+		wp_clear_scheduled_hook( 'mnmlbc2wc_retry_cron_hook' );
+		wbi_debug("cleared mnmlbc2wc_retry_cron_hook");
+	}
+	// end temp
+	if ( false === as_has_scheduled_action( 'bandcamp_woo_periodic_fetch' ) ) {
+		as_schedule_recurring_action( strtotime('+ 2 minutes'), (3 * HOUR_IN_SECONDS), 'bandcamp_woo_periodic_fetch', [], __NAMESPACE__, true );
 		wbi_debug("set schedule");
 	}
 }
@@ -57,7 +68,7 @@ register_activation_hook( __FILE__, __NAMESPACE__ .'\add_cron' );// only add on 
 register_deactivation_hook( __FILE__, __NAMESPACE__ .'\remove_cron' );
 
 function remove_cron() {
-    as_unschedule_all_actions( 'mnmlbc2wc_main_cron_hook' );
+    as_unschedule_all_actions( 'bandcamp_woo_periodic_fetch' );
 }
 
 function set_cron_option_save( $data ) {
