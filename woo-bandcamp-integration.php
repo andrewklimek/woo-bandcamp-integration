@@ -20,13 +20,9 @@ defined('ABSPATH') || exit;
  * CRON STUFF
  */
 
-if ( defined( 'DOING_CRON' ) && DOING_CRON ) {
-	add_action('plugins_loaded', function(){
-		// include_once WP_PLUGIN_DIR . '/woocommerce/packages/action-scheduler/action-scheduler.php';
-		remove_cron();
-		add_cron();
-	});
-}
+// if ( defined( 'DOING_CRON' ) && DOING_CRON ) {
+	add_action('wp', __NAMESPACE__ .'\add_cron');
+// }
 // if ( ! wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
 // 	wp_schedule_event( strtotime('+ 1 minute'), 'hourly', 'mnmlbc2wc_main_cron_hook' );
 // }
@@ -34,10 +30,10 @@ if ( defined( 'DOING_CRON' ) && DOING_CRON ) {
 add_action( 'mnmlbc2wc_main_cron_hook', __NAMESPACE__ .'\main_process' );
 
 function add_cron() {
-		// TEMPORARY to get off of old cron system, transition to action scheduler
-		if ( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
-			wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
-		}
+	// TEMPORARY to get off of old cron system, transition to action scheduler
+	if ( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
+		wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
+	}
 	if ( false === as_has_scheduled_action( 'mnmlbc2wc_main_cron_hook' ) ) {
 		as_schedule_recurring_action( strtotime('+ 2 minutes'), (3 * HOUR_IN_SECONDS), 'mnmlbc2wc_main_cron_hook', [], __NAMESPACE__, true );
 	}
