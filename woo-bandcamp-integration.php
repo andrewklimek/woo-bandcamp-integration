@@ -20,6 +20,13 @@ defined('ABSPATH') || exit;
  * CRON STUFF
  */
 
+if ( defined( 'DOING_CRON' ) && DOING_CRON ) {
+	add_action('plugins_loaded', function(){
+		// include_once WP_PLUGIN_DIR . '/woocommerce/packages/action-scheduler/action-scheduler.php';
+		remove_cron();
+		add_cron();
+	});
+}
 // if ( ! wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
 // 	wp_schedule_event( strtotime('+ 1 minute'), 'hourly', 'mnmlbc2wc_main_cron_hook' );
 // }
@@ -29,6 +36,10 @@ add_action( 'mnmlbc2wc_main_cron_hook', __NAMESPACE__ .'\main_process' );
 function add_cron() {
 	if ( false === as_has_scheduled_action( 'mnmlbc2wc_main_cron_hook' ) ) {
 		as_schedule_recurring_action( strtotime('+ 2 minutes'), (3 * HOUR_IN_SECONDS), 'mnmlbc2wc_main_cron_hook', [], __NAMESPACE__, true );
+	}
+	// TEMPORARY to get off of old cron system, transition to action scheduler
+	if ( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
+		wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
 	}
 }
 
@@ -42,7 +53,7 @@ function add_cron_interval($schedules) {
 }
 add_filter( 'cron_schedules', __NAMESPACE__ .'\add_cron_interval');
 
-// register_activation_hook( __FILE__, __NAMESPACE__ .'\add_cron' );// only add on first option save?
+register_activation_hook( __FILE__, __NAMESPACE__ .'\add_cron' );// only add on first option save?
 
 register_deactivation_hook( __FILE__, __NAMESPACE__ .'\remove_cron' );
 
@@ -135,12 +146,6 @@ function set_price_to_admin_commission( $price, $qty, $product ) {
 
 function main_process( $manual=false ) {
 
-	// TEMPORARY to get off of old cron system, transition to action scheduler
-	if ( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
-		wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
-		add_cron();
-	}
-
 	if ( file_exists( __DIR__ . '/importing' ) ) {
 		$execution_time = ini_get('max_execution_time');
 		if ( ! $execution_time ) $execution_time = 300;
@@ -179,7 +184,10 @@ function main_process( $manual=false ) {
 
 	$settings = $GLOBALS['bc2wc_settings'] = get_option('mnmlbc2wc');
 
-	if ( empty($settings['client_id']) || empty($settings['client_secret']) ) return;// Quit right away if no credentials
+	if ( empty($settings['client_id']) || empty($settings['client_secret']) ) {
+		remove_cron();
+		return;// Quit right away if no credentials
+	}
 
 	add_action( 'woocommerce_email', __NAMESPACE__ .'\disable_woo_emails' );
 
