@@ -40,7 +40,7 @@ function add_cron_interval($schedules) {
 	];
 	return $schedules;
 }
-// add_filter( 'cron_schedules', __NAMESPACE__ .'\add_cron_interval');
+add_filter( 'cron_schedules', __NAMESPACE__ .'\add_cron_interval');
 
 // register_activation_hook( __FILE__, __NAMESPACE__ .'\add_cron' );// only add on first option save?
 
