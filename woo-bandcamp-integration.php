@@ -375,6 +375,8 @@ function main_process( $manual=false ) {
 
 	unlink( __DIR__ . '/importing' );
 
+	wbi_debug( $report . ". done.");
+
 	return $report;
 }
 
