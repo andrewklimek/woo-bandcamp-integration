@@ -20,49 +20,45 @@ defined('ABSPATH') || exit;
  * CRON STUFF
  */
 
-// if ( defined( 'DOING_CRON' ) && DOING_CRON ) {
-	add_action('wp', __NAMESPACE__ .'\add_cron');
-// }
-// if ( ! wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
-// 	wp_schedule_event( strtotime('+ 1 minute'), 'hourly', 'mnmlbc2wc_main_cron_hook' );
-// }
+// TEMP
+// add_action('wp', __NAMESPACE__ .'\add_cron');
+// add_action( 'mnmlbc2wc_main_cron_hook', '__return_true' );
 
 add_action( 'bandcamp_woo_periodic_fetch', __NAMESPACE__ .'\main_process' );
-add_action( 'mnmlbc2wc_main_cron_hook', '__return_true' );
 
 
 function add_cron() {
 	// TEMPORARY to get off of old cron system, transition to action scheduler
-	wbi_debug("run add cron");
-	if ( as_has_scheduled_action( 'mnmlbc2wc_main_cron_hook' ) ) {
-		as_unschedule_all_actions( 'mnmlbc2wc_main_cron_hook' );
-		wbi_debug("cleared AS hook");
-	}
-	if ( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
-		wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
-		wbi_debug("cleared WP hook");
-	}
-	if ( wp_next_scheduled( 'mnmlbc2wc_retry_cron_hook' ) ) {
-		wp_clear_scheduled_hook( 'mnmlbc2wc_retry_cron_hook' );
-		wbi_debug("cleared mnmlbc2wc_retry_cron_hook");
-	}
+	// wbi_debug("run add cron");
+	// if ( as_has_scheduled_action( 'mnmlbc2wc_main_cron_hook' ) ) {
+	// 	as_unschedule_all_actions( 'mnmlbc2wc_main_cron_hook' );
+	// 	wbi_debug("cleared AS hook");
+	// }
+	// if ( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
+	// 	wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
+	// 	wbi_debug("cleared WP hook");
+	// }
+	// if ( wp_next_scheduled( 'mnmlbc2wc_retry_cron_hook' ) ) {
+	// 	wp_clear_scheduled_hook( 'mnmlbc2wc_retry_cron_hook' );
+	// 	wbi_debug("cleared mnmlbc2wc_retry_cron_hook");
+	// }
 	// end temp
 	if ( false === as_has_scheduled_action( 'bandcamp_woo_periodic_fetch' ) ) {
 		as_schedule_recurring_action( strtotime('+ 2 minutes'), (3 * HOUR_IN_SECONDS), 'bandcamp_woo_periodic_fetch', [], __NAMESPACE__, true );
-		wbi_debug("set schedule");
+		// wbi_debug("set schedule");
 	}
-	wbi_debug(as_get_scheduled_actions(['hook' => 'bandcamp_woo_periodic_fetch']));
+	// wbi_debug(as_get_scheduled_actions(['hook' => 'bandcamp_woo_periodic_fetch']));
 }
 
 // not needed if using action scheduler
-function add_cron_interval($schedules) {
-	$schedules['threehours'] = [
-		'interval' => 3 * HOUR_IN_SECONDS,
-		'display'  => 'Every 3 Hours'
-	];
-	return $schedules;
-}
-add_filter( 'cron_schedules', __NAMESPACE__ .'\add_cron_interval');
+// function add_cron_interval($schedules) {
+// 	$schedules['threehours'] = [
+// 		'interval' => 3 * HOUR_IN_SECONDS,
+// 		'display'  => 'Every 3 Hours'
+// 	];
+// 	return $schedules;
+// }
+// add_filter( 'cron_schedules', __NAMESPACE__ .'\add_cron_interval');
 
 register_activation_hook( __FILE__, __NAMESPACE__ .'\add_cron' );// only add on first option save?
 
@@ -517,12 +513,7 @@ function make_woo_order( $data ) {
 		// WC()->shipping()->reset_shipping();
 		// WC()->customer->set_billing_location( $data['billing']['billing_country'], $data['billing']['billing_state'], $data['billing']['billing_postcode'], $data['billing']['billing_city'] );
 		// if ( ! WC()->cart->get_customer()->has_shipping_address() ) {
-		$get_city = WC()->cart->get_customer()->get_shipping_city();
-		if ( is_string( $get_city ) ) {
-			wbi_debug( "new cart instance has city: $get_city before setting it... and now we set it to {$data['shipping']['shipping_city']}" );
-		} else {
-			wbi_debug( $get_city, "get_city was not a string.");
-		}
+		// WC()->cart->get_customer()->get_shipping();// seems to always be set to last order's shipping address
 		WC()->customer->set_shipping_location( $data['shipping']['shipping_country'], $data['shipping']['shipping_state'], $data['shipping']['shipping_postcode'], $data['shipping']['shipping_city'] );
 		// WC()->customer->set_shipping_location( $data['shipping']['shipping_country'], $data['shipping']['shipping_state'], $data['shipping']['shipping_postcode'], $data['shipping']['shipping_city'] );
 		// }
