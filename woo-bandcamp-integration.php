@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-02-16 transition cron
+Version:     2023-02-17 import file shouldn't be made until after API key check
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -153,6 +153,14 @@ function set_price_to_admin_commission( $price, $qty, $product ) {
 
 function main_process( $manual=false ) {
 
+	$log_errors_setting = ini_get( 'log_errors' );
+	$error_log_setting = ini_get( 'error_log' );
+	error_reporting( E_ALL );
+	ini_set( 'display_errors', 0 );// This seems important to not return errors from the API if display happens to be on.
+	ini_set( 'log_errors', 1 );
+	ini_set( 'error_log', __DIR__ . '/php_errors.log' );
+
+
 	if ( file_exists( __DIR__ . '/importing' ) ) {
 		$execution_time = ini_get('max_execution_time');
 		if ( ! $execution_time ) $execution_time = 300;
@@ -161,7 +169,6 @@ function main_process( $manual=false ) {
 			return 'another import is currently running!';
 		}
 	}
-	touch( __DIR__ . '/importing' );
 
 	// I could probably use 'mnmlbc2wc_last_import' option below but I'm using it to check what orders were imported and I'm not 100% sure I can trust BC timestamps against the server time.
 	if ( ! $manual ) {
@@ -175,19 +182,6 @@ function main_process( $manual=false ) {
 			}
 		}
 	}
-	// touch( __DIR__ . '/log.txt' );
-
-
-	$log_errors_setting = ini_get( 'log_errors' );
-	$error_log_setting = ini_get( 'error_log' );
-	error_reporting( E_ALL );
-	ini_set( 'display_errors', 0 );// This seems important to not return errors from the API if display happens to be on.
-	ini_set( 'log_errors', 1 );
-	ini_set( 'error_log', __DIR__ . '/php_errors.log' );
-
-	// TEMP
-	// remove_cron();
-	// add_cron();
 
 	$settings = $GLOBALS['bc2wc_settings'] = get_option('mnmlbc2wc');
 
@@ -195,6 +189,9 @@ function main_process( $manual=false ) {
 		remove_cron();
 		return;// Quit right away if no credentials
 	}
+
+	// otherwise begin import:
+	touch( __DIR__ . '/importing' );
 
 	add_action( 'woocommerce_email', __NAMESPACE__ .'\disable_woo_emails' );
 
