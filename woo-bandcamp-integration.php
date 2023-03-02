@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-03-02 error handling for fetch api token failure + re-enable retry_add_tracking
+Version:     2023-03-02 add 'bandcamp_id exists' to query in retry_add_tracking
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -906,9 +906,19 @@ function handle_order_completion( $order ){
 }
 
 
-function retry_add_tracking()
-{
-	$orders = wc_get_orders(['limit' => 100, 'status' => ['wc-completed'], 'meta_key' => 'marked_off_on_bandcamp', 'meta_compare' => 'NOT EXISTS']);
+function retry_add_tracking() {
+	wbi_debug("running retry_add_tracking");
+	// $orders = wc_get_orders(['limit' => 100, 'status' => ['wc-completed'], 'meta_key' => 'marked_off_on_bandcamp', 'meta_compare' => 'NOT EXISTS']);// TODO bandcamp_id
+	add_filter( 'woocommerce_order_data_store_cpt_get_orders_query', function( $query, $query_vars ) {
+		if ( ! empty( $query_vars['retry_add_tracking'] ) ) {
+			$query['meta_query'][] = ['key' => 'marked_off_on_bandcamp', 'compare' => 'NOT EXISTS'];
+			$query['meta_query'][] = ['key' => 'bandcamp_id', 'compare' => 'EXISTS'];
+		}
+		return $query;
+	}, 10, 2 );
+	$orders = wc_get_orders( ['limit' => 100, 'status' => 'completed', 'retry_add_tracking' => 1 ] );
+	wbi_debug("got ". count($orders) ." orders");
+	// wbi_debug($orders);
 	foreach ( $orders as $order ) {
 		handle_order_completion( $order );
 	}
