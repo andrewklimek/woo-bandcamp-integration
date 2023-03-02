@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-02-17 import file shouldn't be made until after API key check
+Version:     2023-03-02 error handling for fetch api token failure + re-enable retry_add_tracking
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -25,6 +25,7 @@ defined('ABSPATH') || exit;
 // add_action( 'mnmlbc2wc_main_cron_hook', '__return_true' );
 
 add_action( 'bandcamp_woo_periodic_fetch', __NAMESPACE__ .'\main_process' );
+add_action( 'bandcamp_woo_retry_mark_shipped', __NAMESPACE__ .'\retry_add_tracking' );
 
 
 function add_cron() {
@@ -38,9 +39,9 @@ function add_cron() {
 	// 	wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
 	// 	wbi_debug("cleared WP hook");
 	// }
-	// if ( wp_next_scheduled( 'mnmlbc2wc_retry_cron_hook' ) ) {
-	// 	wp_clear_scheduled_hook( 'mnmlbc2wc_retry_cron_hook' );
-	// 	wbi_debug("cleared mnmlbc2wc_retry_cron_hook");
+	// if ( wp_next_scheduled( 'bandcamp_woo_retry_mark_shipped' ) ) {
+	// 	wp_clear_scheduled_hook( 'bandcamp_woo_retry_mark_shipped' );
+	// 	wbi_debug("cleared bandcamp_woo_retry_mark_shipped");
 	// }
 	// end temp
 	if ( false === as_has_scheduled_action( 'bandcamp_woo_periodic_fetch' ) ) {
@@ -48,6 +49,9 @@ function add_cron() {
 		// wbi_debug("set schedule");
 	}
 	// wbi_debug(as_get_scheduled_actions(['hook' => 'bandcamp_woo_periodic_fetch']));
+	if ( false === as_has_scheduled_action( 'bandcamp_woo_retry_mark_shipped' ) ) {
+		as_schedule_recurring_action( strtotime('+ 30 seconds'), (12 * HOUR_IN_SECONDS), 'bandcamp_woo_retry_mark_shipped' );
+	}
 }
 
 // not needed if using action scheduler
@@ -66,6 +70,7 @@ register_deactivation_hook( __FILE__, __NAMESPACE__ .'\remove_cron' );
 
 function remove_cron() {
     as_unschedule_all_actions( 'bandcamp_woo_periodic_fetch' );
+	as_unschedule_all_actions( 'bandcamp_woo_retry_mark_shipped' );
 }
 
 function set_cron_option_save( $data ) {
@@ -75,11 +80,7 @@ function set_cron_option_save( $data ) {
 		add_cron();
 }
 
-// as_unschedule_all_actions( 'mnmlbc2wc_retry_cron_hook' );
-// add_action( 'mnmlbc2wc_retry_cron_hook', __NAMESPACE__ .'\retry_add_tracking' );
-// if ( false === as_has_scheduled_action( 'mnmlbc2wc_retry_cron_hook' ) ) {
-// 	as_schedule_recurring_action( strtotime('+ 30 seconds'), (12 * HOUR_IN_SECONDS), 'mnmlbc2wc_retry_cron_hook' );
-// }
+
 
 /**
  * END CRON STUFF
@@ -1185,8 +1186,12 @@ function fetch_token(){
 	$token = json_decode($json);
 
 	if ( empty( $token->access) ) {
-		wbi_debug("Something wrong with the api return");
+		wbi_debug("Couldn't fetch token from master site.  Is the url correct, and is the plugin active on the other site?");
+		if ( isset( $token->code ) && $token->code === "rest_no_route" ) {
+			log("Check the \"fetch tokens url\" url make sure the plugin is active on that site.");
+		}
 		wbi_debug($json);
+		return false;
 	}
 	$token = (array) $token;
 
@@ -1203,6 +1208,7 @@ function fetch_token(){
 
 add_action( 'rest_api_init', __NAMESPACE__ .'\register_api_endpoint' );
 function register_api_endpoint() {
+	// register_rest_route( 'mnmlbc2wc/v1', '/temp-retry', ['methods' => 'GET', 'callback' => __NAMESPACE__ .'\api_process', 'permission_callback' => function(){ return true;} ] );
 	register_rest_route( 'mnmlbc2wc/v1', '/i', ['methods' => 'GET', 'callback' => __NAMESPACE__ .'\api_process', 'permission_callback' => function(){ return current_user_can('import');} ] );
 	register_rest_route( 'mnmlbc2wc/v1', '/s', ['methods' => 'POST', 'callback' => __NAMESPACE__ .'\api_settings', 'permission_callback' => function(){ return current_user_can('import');} ] );
 	$options = get_option('mnmlbc2wc',[]);
@@ -1213,6 +1219,7 @@ function register_api_endpoint() {
 
 function api_process( $request ) {
 	// $data = $request->get_params();// in future, may want to get specific band ids on request
+	// retry_add_tracking();// tmp
 	$report = main_process('manual');
 	$return = [ 'terse' => $report ];
 	$return['verbose'] = !empty( $GLOBALS['bc_wc_log'] ) ? $GLOBALS['bc_wc_log'] : ( $report ? $report : 'nothing done' );
@@ -1221,7 +1228,7 @@ function api_process( $request ) {
 }
 
 function api_settings( $request ) {
-	fetch_token();
+	fetch_token();// TODO why was this here?
 
 	$data = $request->get_body_params();
 	foreach ( $data as $k => $v ) update_option( $k, $v, false );
