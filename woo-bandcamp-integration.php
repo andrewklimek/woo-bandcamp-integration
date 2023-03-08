@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-03-02 add 'bandcamp_id exists' to query in retry_add_tracking
+Version:     2023-03-08 override view order permission check for shop owner
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -1776,6 +1776,25 @@ function set_pagination_message( $name, $path, $located, $args ) {
 add_action( 'woocommerce_before_account_orders_pagination', function(){
     echo "<p class=woocommerce-pagination-message>{$GLOBALS['bc2wc_orders_pagination_message']}</p>";
 } );
+
+
+add_action( 'woocommerce_account_content', function(){
+	add_filter('user_has_cap', __NAMESPACE__.'\assign_to_setting_view_permission_override', 10, 4 );
+}, 0 );
+
+add_action( 'woocommerce_account_content', function(){
+	remove_filter('user_has_cap', __NAMESPACE__.'\assign_to_setting_view_permission_override', 10, 4 );
+}, 99999 );
+
+function assign_to_setting_view_permission_override( $allcaps, $caps, $args, $user ) {// $args = [0 => 'requested cap', 1 => (int) user id ]
+	if ( $args[0] === 'view_order' ) {
+		$settings = get_option('mnmlbc2wc');
+		if ( !empty( $settings['assign_orders_to'] ) && (int) $settings['assign_orders_to'] === $args[1] ) {
+			foreach ( (array) $caps as $cap ) $allcaps[$cap] = true;
+		}
+	}
+	return $allcaps;
+}
 
 // function register_role(){
 //     add_role( 'order_viewer', 'Bandcamp Order Viewer', ['read' => true, 'read_shop_order' => true, 'edit_shop_order' => true, 'edit_shop_orders' => true, 'edit_others_shop_orders' => true ] );
