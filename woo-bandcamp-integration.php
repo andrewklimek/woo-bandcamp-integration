@@ -1617,6 +1617,19 @@ function account_orders_columns( $columns ){
 	return $columns;
 }
 
+add_action( 'woocommerce_my_account_my_orders_column_order-date', function($order){
+	echo str_replace( date(' Y'), '', $order->get_date_created()->date( 'j M Y' ) );
+}, 1, 10 );
+
+add_action( 'woocommerce_my_account_my_orders_column_order-total', function($order){
+	echo $order->get_formatted_order_total();
+}, 1, 10 );
+
+add_action( 'woocommerce_my_account_my_orders_column_order-status', function($order){
+	$status = strtolower( esc_attr(wc_get_order_status_name( $order->get_status() ) ) );
+	echo "<span class='wc-status {$status}'>$status</span>";
+}, 1, 10 );
+
 add_action( 'woocommerce_my_account_my_orders_column_order-source', function($order){
     // echo $order->get_payment_method();// wasnt set properly on  CSV imports before 2022-05-19
     echo $order->get_meta('bandcamp_id') ? 'Bandcamp' : 'Manual';
@@ -1633,8 +1646,10 @@ add_action( 'woocommerce_my_account_my_orders_column_order-shipto', function($or
 
 add_action( 'woocommerce_my_account_my_orders_column_order-items', function($order){
     $order_items = $order->get_items( 'line_item' );
-    foreach ( $order_items as $item )
-        echo $item->get_quantity() ."x ". $item->get_name();
+    foreach ( $order_items as $item ) {
+		if ( empty($first) ) $first = "done"; else echo "<br>";
+		echo $item->get_quantity() ."x ". $item->get_name();
+	}
 }, 1, 10 );
 
 add_action( 'woocommerce_my_account_my_orders_column_order-tracking', function($order){
@@ -1644,8 +1659,12 @@ add_action( 'woocommerce_my_account_my_orders_column_order-tracking', function($
 add_action( 'woocommerce_before_account_orders', function(){
     ?>
     <style>
+	.woocommerce table.my_account_orders td {
+		padding: 30px 0;
+		border-color: #ccc;
+		vertical-align: top;
+	}
     .woocommerce-orders .container {width:100%}
-    .woocommerce table.my_account_orders td {padding:1em 1em 1em 0}
     .woocommerce nav.woocommerce-MyAccount-navigation {
         float: none;
         width: auto;
@@ -1675,6 +1694,15 @@ add_action( 'woocommerce_before_account_orders', function(){
         text-align: center;
         margin-top: 3em;
     }
+	.wc-status {
+		color: #aaa;
+	}
+	.wc-status.completed {
+		color: #6d6;
+	}
+	.wc-status.processing {
+		color: #000;
+	}
     </style>
     <?php
     
