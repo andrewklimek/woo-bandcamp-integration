@@ -643,7 +643,7 @@ function prepare_data_for_woo_order( $data, $o ) {
 		if ( ! $product_id ) {
 			// wbi_debug("Couldnt find product ID for $data->item_name");
 			$o[ $order_key ]['missing_item'] = "{$data->ship_to_name} — couldnt find product {$data->item_name} {$data->sku}";
-			$GLOBALS['bc_wc_ids'][ $package_id ] = $o[ $order_key ]['missing_item'];
+			// $GLOBALS['bc_wc_ids'][ $package_id ] = $o[ $order_key ]['missing_item'];// TODO need to store more info aboutmissing items before caching.  Oldest result could have had wrong SKU or "preorder" in title.
 			return $o;
 		}
 		
