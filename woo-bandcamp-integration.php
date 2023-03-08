@@ -1647,8 +1647,12 @@ add_action( 'woocommerce_my_account_my_orders_column_order-shipto', function($or
 add_action( 'woocommerce_my_account_my_orders_column_order-items', function($order){
     $order_items = $order->get_items( 'line_item' );
     foreach ( $order_items as $item ) {
-		if ( empty($first) ) $first = "done"; else echo "<br>";
-		echo $item->get_quantity() ."x ". $item->get_name();
+		$product = $item->get_product();
+		echo "<div class=woocommerce-orders-table__cell-line-items>";
+		echo $product->get_image('thumbnail');
+		echo "<div>". $item->get_quantity() ."x ". $item->get_name();
+		echo "<br>". $product->get_sku() ."</div>";
+		echo "</div>";
 	}
 }, 1, 10 );
 
@@ -1702,6 +1706,18 @@ add_action( 'woocommerce_before_account_orders', function(){
 	}
 	.wc-status.processing {
 		color: #46f;
+	}
+	.woocommerce table.my_account_orders td.woocommerce-orders-table__cell-order-items {
+		padding: 20px 0;
+	}
+	.woocommerce-orders-table__cell-order-items img {
+		width: 50px;
+		height: auto;
+		margin: 6px;
+	}
+	.woocommerce-orders-table__cell-line-items {
+		display: flex;
+		align-items: center;
 	}
     </style>
     <?php
