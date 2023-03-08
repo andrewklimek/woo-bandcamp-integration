@@ -1701,7 +1701,7 @@ add_action( 'woocommerce_before_account_orders', function(){
 		color: #6d6;
 	}
 	.wc-status.processing {
-		color: #000;
+		color: #46f;
 	}
     </style>
     <?php
