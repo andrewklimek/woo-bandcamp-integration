@@ -1659,7 +1659,7 @@ function stock_list(){
 	echo "<style>#stock-table,#stock-table td{border:0}#stock-table img{width:50px;height:auto;}</style>";
 	echo '<table id=stock-table>';
 	foreach( $products as $product ) {
-		if ( ! $product->get_manage_stock() ) continue;
+		// if ( ! $product->get_manage_stock() ) continue;
 		if ( $product->get_type() === 'variable' ) {
 			$variations = $product->get_children();
 			foreach ( $variations as $vid ) {
@@ -1674,6 +1674,7 @@ function stock_list(){
 }
 
 function stock_list_print_row( $product ) {
+	if ( ! $product->get_manage_stock() ) return;
 	echo  "<tr>";
 	echo  "<td>". $product->get_image('thumbnail');
 	// echo  "<td>". $product->get_sku();
