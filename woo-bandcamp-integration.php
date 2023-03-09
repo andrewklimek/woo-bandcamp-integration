@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-03-08 override view order permission check for shop owner
+Version:     2023-03-08 stock table shortcode
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -1599,6 +1599,31 @@ function disable_woo_emails_via( $bool, $object ) {
 
 
 
+
+/**
+ * Account template stuff
+ */
+
+ add_shortcode( 'all_products_list', __NAMESPACE__.'\all_products_list' );
+ function all_products_list() {
+	$products = wc_get_products([
+		'limit' => -1,
+		'orderby' => 'date',
+		'order' => 'DESC',
+	]);
+		
+	$html = '<table>';
+	foreach( $products as $product ) {
+		$html .=  "<tr>";
+		// $html .=  "<td>". $product->get_image('thumbnail');
+		$html .=  "<td>". $product->get_stock_quantity();
+		$html .=  "<td>". $product->get_sku();
+		$html .=  "<td>". $product->get_name();
+	}
+	$html .= '</table>';
+
+	return $html;
+ }
 
 add_filter('woocommerce_account_orders_columns', __NAMESPACE__.'\account_orders_columns', 1, 9 );
 function account_orders_columns( $columns ){
