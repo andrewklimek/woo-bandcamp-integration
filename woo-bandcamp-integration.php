@@ -1613,8 +1613,12 @@ register_activation_hook( __FILE__, __NAMESPACE__.'\activation_flush_rewrite_rul
 register_deactivation_hook( __FILE__, 'flush_rewrite_rules' );
 
 function add_myaccount_endpoints() {
-	wbi_debug('init');
 	add_rewrite_endpoint( 'stock-list', EP_ROOT | EP_PAGES );
+	if ( ! get_transient('woo2bc_rewrite_flushed') ) {
+		wbi_debug("flush!");
+		flush_rewrite_rules();
+		set_transient('woo2bc_rewrite_flushed', true, 60 * 60 * 24 * 30 );
+	}
 }
 add_action( 'init', __NAMESPACE__.'\add_myaccount_endpoints' );
 
