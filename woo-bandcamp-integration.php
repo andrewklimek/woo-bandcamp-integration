@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-03-08 stock table shortcode
+Version:     2023-03-09 stock table page
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -1601,29 +1601,57 @@ function disable_woo_emails_via( $bool, $object ) {
 
 
 /**
- * Account template stuff
- */
+* Account template stuff
+*/
 
- add_shortcode( 'all_products_list', __NAMESPACE__.'\all_products_list' );
- function all_products_list() {
+function activation_flush_rewrite_rules() {
+	add_myaccount_endpoints();
+	flush_rewrite_rules();
+}
+
+register_activation_hook( __FILE__, __NAMESPACE__.'\activation_flush_rewrite_rules' );
+register_deactivation_hook( __FILE__, 'flush_rewrite_rules' );
+
+function add_myaccount_endpoints() {
+	wbi_debug('init');
+	add_rewrite_endpoint( 'stock-list', EP_ROOT | EP_PAGES );
+}
+add_action( 'init', __NAMESPACE__.'\add_myaccount_endpoints' );
+
+function add_myaccount_query_vars( $vars ) {
+	$vars[] = 'stock-list';
+	return $vars;
+}
+// add_filter( 'query_vars', __NAMESPACE__.'\add_myaccount_query_vars', 0 );
+
+
+add_filter( 'woocommerce_account_menu_items', __NAMESPACE__.'\add_account_menu_items');
+function add_account_menu_items( $items ) {
+	$items['stock-list'] = 'Stock List';
+	return $items;
+}
+
+add_action( 'woocommerce_account_stock-list_endpoint', __NAMESPACE__.'\stock_list' );
+
+function stock_list(){
 	$products = wc_get_products([
 		'limit' => -1,
-		'orderby' => 'date',
-		'order' => 'DESC',
+		'orderby' => 'name',
+		'order' => 'ASC',
 	]);
 		
-	$html = '<table>';
+	echo '<table>';
 	foreach( $products as $product ) {
-		$html .=  "<tr>";
-		// $html .=  "<td>". $product->get_image('thumbnail');
-		$html .=  "<td>". $product->get_stock_quantity();
-		$html .=  "<td>". $product->get_sku();
-		$html .=  "<td>". $product->get_name();
+		echo  "<tr>";
+		echo  "<td>". $product->get_stock_quantity();
+		// echo  "<td>". $product->get_image('thumbnail');
+		echo  "<td>". $product->get_sku();
+		echo  "<td>". $product->get_name();
 	}
-	$html .= '</table>';
+	echo '</table>';
+}
 
-	return $html;
- }
+
 
 add_filter('woocommerce_account_orders_columns', __NAMESPACE__.'\account_orders_columns', 1, 9 );
 function account_orders_columns( $columns ){
@@ -1689,7 +1717,7 @@ add_action( 'woocommerce_before_account_orders', function(){
     ?>
     <style>
 	.woocommerce table.my_account_orders td {
-		padding: 30px 0;
+		padding: 30px 5px;
 		border-color: #ccc;
 		vertical-align: top;
 	}
