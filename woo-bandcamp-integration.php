@@ -1659,15 +1659,28 @@ function stock_list(){
 	echo "<style>#stock-table,#stock-table td{border:0}#stock-table img{width:50px;height:auto;}</style>";
 	echo '<table id=stock-table>';
 	foreach( $products as $product ) {
-		echo  "<tr>";
-		echo  "<td>". $product->get_image('thumbnail');
-		echo  "<td>". $product->get_sku();
-		echo  "<td>". $product->get_name();
-		echo  "<td>". $product->get_stock_quantity();
+		if ( ! $product->get_manage_stock() ) continue;
+		if ( $product->get_type() === 'variable' ) {
+			$variations = $product->get_children();
+			foreach ( $variations as $vid ) {
+				$v = wc_get_product($vid);
+				stock_list_print_row( $v );
+			}
+		} else {
+			stock_list_print_row( $product );
+		}
 	}
 	echo '</table>';
 }
 
+function stock_list_print_row( $product ) {
+	echo  "<tr>";
+	echo  "<td>". $product->get_image('thumbnail');
+	// echo  "<td>". $product->get_sku();
+	echo  "<td>". str_replace('<br>','', $product->get_name() );
+	echo  " (". $product->get_sku() .")";
+	echo  "<td>". $product->get_stock_quantity();
+}
 
 
 add_filter('woocommerce_account_orders_columns', __NAMESPACE__.'\account_orders_columns', 1, 9 );
