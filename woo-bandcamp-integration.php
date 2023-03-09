@@ -1613,17 +1613,17 @@ register_activation_hook( __FILE__, __NAMESPACE__.'\activation_flush_rewrite_rul
 register_deactivation_hook( __FILE__, 'flush_rewrite_rules' );
 
 function add_myaccount_endpoints() {
-	add_rewrite_endpoint( 'stock-list', EP_ROOT | EP_PAGES );
-	if ( ! get_transient('woo2bc_rewrite_flushed') ) {
+	add_rewrite_endpoint( 'inventory', EP_ROOT | EP_PAGES );
+	if ( ! get_transient('woo2bc_inventory_rewrite_flushed') ) {
 		wbi_debug("flush!");
 		flush_rewrite_rules();
-		set_transient('woo2bc_rewrite_flushed', true, 60 * 60 * 24 * 30 );
+		set_transient('woo2bc_inventory_rewrite_flushed', true, 60 * 60 * 24 * 30 );
 	}
 }
 add_action( 'init', __NAMESPACE__.'\add_myaccount_endpoints' );
 
 function add_myaccount_query_vars( $vars ) {
-	$vars[] = 'stock-list';
+	$vars[] = 'inventory';
 	return $vars;
 }
 // add_filter( 'query_vars', __NAMESPACE__.'\add_myaccount_query_vars', 0 );
@@ -1631,26 +1631,39 @@ function add_myaccount_query_vars( $vars ) {
 
 add_filter( 'woocommerce_account_menu_items', __NAMESPACE__.'\add_account_menu_items');
 function add_account_menu_items( $items ) {
-	$items['stock-list'] = 'Stock List';
-	return $items;
+	$settings = get_option('mnmlbc2wc');
+	if ( ! current_user_can('import') && ( empty( $settings['assign_orders_to'] ) || (int) $settings['assign_orders_to'] !== get_current_user_id() ) )
+		return $items;
+
+	$position = array_search( 'orders', array_keys( $items ) ) + 1;
+	$array = array_slice( $items, 0, $position, true );
+	$array['inventory'] = 'Inventory';
+	$array += array_slice( $items, $position, count( $items ) - $position, true );
+
+	return $array;
 }
 
-add_action( 'woocommerce_account_stock-list_endpoint', __NAMESPACE__.'\stock_list' );
+add_action( 'woocommerce_account_inventory_endpoint', __NAMESPACE__.'\stock_list' );
 
 function stock_list(){
+	$settings = get_option('mnmlbc2wc');
+	if ( ! current_user_can('import') && ( empty( $settings['assign_orders_to'] ) || (int) $settings['assign_orders_to'] !== get_current_user_id() ) )
+		return;
+	
 	$products = wc_get_products([
 		'limit' => -1,
 		'orderby' => 'name',
 		'order' => 'ASC',
 	]);
-		
-	echo '<table>';
+	
+	echo "<style>#stock-table,#stock-table td{border:0}#stock-table img{width:50px;height:auto;}</style>";
+	echo '<table id=stock-table>';
 	foreach( $products as $product ) {
 		echo  "<tr>";
-		echo  "<td>". $product->get_stock_quantity();
-		// echo  "<td>". $product->get_image('thumbnail');
+		echo  "<td>". $product->get_image('thumbnail');
 		echo  "<td>". $product->get_sku();
 		echo  "<td>". $product->get_name();
+		echo  "<td>". $product->get_stock_quantity();
 	}
 	echo '</table>';
 }
