@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-03-09 stock table page
+Version:     2023-03-13 woocommerce_variation_is_purchasable
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -198,6 +198,7 @@ function main_process( $manual=false ) {
 
 	// Circumvent checks on if this can be bought: https://github.com/woocommerce/woocommerce/blob/6.3.1/plugins/woocommerce/includes/class-wc-cart.php#L1168
 	add_filter( 'woocommerce_is_purchasable', '__return_true' );// is_purchasable()
+	add_filter( 'woocommerce_variation_is_purchasable', '__return_true' );// is_purchasable() (class-wc-product-variation.php)
 	add_filter( 'woocommerce_product_is_in_stock', '__return_true' );// is_in_stock()
 	add_filter( 'woocommerce_product_backorders_allowed', '__return_true' );// has_enough_stock()
 	add_filter( 'woocommerce_product_backorders_require_notification', '__return_false' );
