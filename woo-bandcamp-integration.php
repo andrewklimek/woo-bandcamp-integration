@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-03-13 woocommerce_variation_is_purchasable
+Version:     2023-03-13 Cron Fix
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -21,36 +21,54 @@ defined('ABSPATH') || exit;
  */
 
 // TEMP
-// add_action('wp', __NAMESPACE__ .'\add_cron');
-// add_action( 'mnmlbc2wc_main_cron_hook', '__return_true' );
+add_action('wp', __NAMESPACE__ .'\fix_cron');
+add_action( 'mnmlbc2wc_main_cron_hook', '__return_true' );
 
 add_action( 'bandcamp_woo_periodic_fetch', __NAMESPACE__ .'\main_process' );
 add_action( 'bandcamp_woo_retry_mark_shipped', __NAMESPACE__ .'\retry_add_tracking' );
 
 
-function add_cron() {
+function fix_cron() {
+
 	// TEMPORARY to get off of old cron system, transition to action scheduler
-	// wbi_debug("run add cron");
-	// if ( as_has_scheduled_action( 'mnmlbc2wc_main_cron_hook' ) ) {
-	// 	as_unschedule_all_actions( 'mnmlbc2wc_main_cron_hook' );
-	// 	wbi_debug("cleared AS hook");
-	// }
-	// if ( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
-	// 	wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
-	// 	wbi_debug("cleared WP hook");
-	// }
-	// if ( wp_next_scheduled( 'bandcamp_woo_retry_mark_shipped' ) ) {
-	// 	wp_clear_scheduled_hook( 'bandcamp_woo_retry_mark_shipped' );
-	// 	wbi_debug("cleared bandcamp_woo_retry_mark_shipped");
-	// }
-	// end temp
+	if ( get_transient('woo2bc_fixcron') ) return;
+
+	wbi_debug("RUNNING CRON FIX");
+
+	remove_cron();
+
+	if ( as_has_scheduled_action( 'mnmlbc2wc_main_cron_hook' ) ) {
+		as_unschedule_all_actions( 'mnmlbc2wc_main_cron_hook' );
+		wbi_debug("cleared AS hook");
+	}
+	if ( wp_next_scheduled( 'mnmlbc2wc_main_cron_hook' ) ) {
+		wp_clear_scheduled_hook( 'mnmlbc2wc_main_cron_hook' );
+		wbi_debug("cleared WP hook");
+	}
+	if ( wp_next_scheduled( 'bandcamp_woo_retry_mark_shipped' ) ) {
+		wp_clear_scheduled_hook( 'bandcamp_woo_retry_mark_shipped' );
+		wbi_debug("cleared bandcamp_woo_retry_mark_shipped");
+	}
 	if ( false === as_has_scheduled_action( 'bandcamp_woo_periodic_fetch' ) ) {
 		as_schedule_recurring_action( strtotime('+ 2 minutes'), (3 * HOUR_IN_SECONDS), 'bandcamp_woo_periodic_fetch', [], __NAMESPACE__, true );
-		// wbi_debug("set schedule");
+		wbi_debug("set schedule");
 	}
 	// wbi_debug(as_get_scheduled_actions(['hook' => 'bandcamp_woo_periodic_fetch']));
 	if ( false === as_has_scheduled_action( 'bandcamp_woo_retry_mark_shipped' ) ) {
-		as_schedule_recurring_action( strtotime('+ 30 seconds'), (12 * HOUR_IN_SECONDS), 'bandcamp_woo_retry_mark_shipped' );
+		as_schedule_recurring_action( strtotime('+ 30 seconds'), (12 * HOUR_IN_SECONDS), 'bandcamp_woo_retry_mark_shipped', [], __NAMESPACE__, true );
+	}
+	set_transient('woo2bc_fixcron', true, 60 * 60 * 24 * 30 );
+	wbi_debug("CRON WAS FIXED");
+}
+
+function add_cron() {
+	if ( false === as_has_scheduled_action( 'bandcamp_woo_periodic_fetch' ) ) {
+		as_schedule_recurring_action( strtotime('+ 2 minutes'), (3 * HOUR_IN_SECONDS), 'bandcamp_woo_periodic_fetch', [], __NAMESPACE__, true );
+		wbi_debug("set schedule");
+	}
+	// wbi_debug(as_get_scheduled_actions(['hook' => 'bandcamp_woo_periodic_fetch']));
+	if ( false === as_has_scheduled_action( 'bandcamp_woo_retry_mark_shipped' ) ) {
+		as_schedule_recurring_action( strtotime('+ 30 seconds'), (12 * HOUR_IN_SECONDS), 'bandcamp_woo_retry_mark_shipped', [], __NAMESPACE__, true );
 	}
 }
 
