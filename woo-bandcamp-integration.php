@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-03-13 Cron Fix
+Version:     2023-03-20 exclude refund order type from dashboard
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -1651,7 +1651,7 @@ function add_myaccount_query_vars( $vars ) {
 add_filter( 'woocommerce_account_menu_items', __NAMESPACE__.'\add_account_menu_items');
 function add_account_menu_items( $items ) {
 	$settings = get_option('mnmlbc2wc');
-	if ( ! current_user_can('import') && ( empty( $settings['assign_orders_to'] ) || (int) $settings['assign_orders_to'] !== get_current_user_id() ) )
+	if ( ! current_user_can('view_woocommerce_reports') && ( empty( $settings['assign_orders_to'] ) || (int) $settings['assign_orders_to'] !== get_current_user_id() ) )
 		return $items;
 
 	$position = array_search( 'orders', array_keys( $items ) ) + 1;
@@ -1666,7 +1666,7 @@ add_action( 'woocommerce_account_inventory_endpoint', __NAMESPACE__.'\stock_list
 
 function stock_list(){
 	$settings = get_option('mnmlbc2wc');
-	if ( ! current_user_can('import') && ( empty( $settings['assign_orders_to'] ) || (int) $settings['assign_orders_to'] !== get_current_user_id() ) )
+	if ( ! current_user_can('view_woocommerce_reports') && ( empty( $settings['assign_orders_to'] ) || (int) $settings['assign_orders_to'] !== get_current_user_id() ) )
 		return;
 	
 	$products = wc_get_products([
@@ -1850,14 +1850,15 @@ add_action( 'woocommerce_before_account_orders', function(){
 });
 
 
-
-
 // This might be temporary, to avoid retroactively assigning orders to the right user.
 // UPDATE `wp_postmeta` SET `meta_value` = '3' WHERE `meta_key` = '_customer_user';
-add_filter( 'woocommerce_my_account_my_orders_query', function($query){
+add_filter( 'woocommerce_my_account_my_orders_query', __NAMESPACE__ .'\woocommerce_my_account_my_orders_query', 1, 10 );
+function woocommerce_my_account_my_orders_query ( $query ) {
     $settings = get_option('mnmlbc2wc');
-    if ( !empty( $settings['assign_orders_to'] ) && (int) $settings['assign_orders_to'] === get_current_user_id() ) {
+	wbi_debug( 'assign orders to: '. $settings['assign_orders_to'] );
+    if ( ( !empty( $settings['assign_orders_to'] ) && (int) $settings['assign_orders_to'] === get_current_user_id() ) || current_user_can('view_woocommerce_reports') ) {
 	    unset($query['customer']);
+		$query['type'] = 'shop_order';// need to exclude 'shop_order_refund' which is the only other type.  These are a special type of order that don't have the same functions.  the results will still contain the original order with status refunded
     }
     
     // Date search
@@ -1898,7 +1899,7 @@ add_filter( 'woocommerce_my_account_my_orders_query', function($query){
     }
     
 	return $query;
-}, 1, 10 );
+}
 
 function add_search_params( $url, $endpoint, $value ) {
     if ( $endpoint === 'orders' && is_numeric($value) ) {
