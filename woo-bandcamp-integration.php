@@ -16,6 +16,7 @@ defined('ABSPATH') || exit;
 
 // include( __DIR__ . "/import.php" );
 
+
 /**
  * CRON STUFF
  */
@@ -220,7 +221,14 @@ function main_process( $manual=false ) {
 	add_filter( 'woocommerce_product_is_in_stock', '__return_true' );// is_in_stock()
 	add_filter( 'woocommerce_product_backorders_allowed', '__return_true' );// has_enough_stock()
 	add_filter( 'woocommerce_product_backorders_require_notification', '__return_false' );
-	
+	// add_filter( 'woocommerce_product_get_price', function($price){ error_log('this ran '. $price ); return $price === '' ? '0' : $price; } );// Fix forgotten prices that throw fatal error in table-rate-shipping plugin
+	add_filter( 'woocommerce_add_cart_item', __NAMESPACE__ .'\fix_empty_price', 20, 2 );
+	function fix_empty_price( $cart_data, $cart_item_key ) {
+		// Price calculation
+		if ( $cart_data['data']->get_price() === '' )
+			$cart_data['data']->set_price( '0' );
+		return $cart_data;
+	}
 
 	if ( !empty( $settings['marketplace_mode'] ) && class_exists('Dokan_Pro', false) ) {
 		add_filter( 'woocommerce_get_price_excluding_tax', __NAMESPACE__ .'\set_price_to_admin_commission', 10, 3 );
