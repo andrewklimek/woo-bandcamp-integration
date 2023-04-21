@@ -22,8 +22,8 @@ defined('ABSPATH') || exit;
  */
 
 // TEMP
-// add_action('wp', __NAMESPACE__ .'\fix_cron');
-// add_action( 'mnmlbc2wc_main_cron_hook', '__return_true' );
+add_action('wp', __NAMESPACE__ .'\fix_cron');
+add_action( 'mnmlbc2wc_main_cron_hook', '__return_true' );
 
 add_action( 'bandcamp_woo_periodic_fetch', __NAMESPACE__ .'\main_process' );
 add_action( 'bandcamp_woo_retry_mark_shipped', __NAMESPACE__ .'\retry_add_tracking' );
@@ -32,7 +32,7 @@ add_action( 'bandcamp_woo_retry_mark_shipped', __NAMESPACE__ .'\retry_add_tracki
 function fix_cron() {
 
 	// TEMPORARY to get off of old cron system, transition to action scheduler
-	if ( get_transient('woo2bc_fixcron') ) return;
+	if ( get_transient('woo2bc_fixcron_2') ) return;
 
 	wbi_debug("RUNNING CRON FIX");
 
@@ -52,14 +52,14 @@ function fix_cron() {
 	}
 	if ( false === as_has_scheduled_action( 'bandcamp_woo_periodic_fetch' ) ) {
 		as_schedule_recurring_action( strtotime('+ 2 minutes'), (3 * HOUR_IN_SECONDS), 'bandcamp_woo_periodic_fetch', [], __NAMESPACE__, true );
-		wbi_debug("set schedule");
+		wbi_debug("HAD TO SET SCHEDULE");
 	}
 	// wbi_debug(as_get_scheduled_actions(['hook' => 'bandcamp_woo_periodic_fetch']));
 	if ( false === as_has_scheduled_action( 'bandcamp_woo_retry_mark_shipped' ) ) {
 		as_schedule_recurring_action( strtotime('+ 30 seconds'), (12 * HOUR_IN_SECONDS), 'bandcamp_woo_retry_mark_shipped', [], __NAMESPACE__, true );
 	}
-	set_transient('woo2bc_fixcron', true, 60 * 60 * 24 * 30 );
-	wbi_debug("CRON WAS FIXED");
+	set_transient('woo2bc_fixcron_2', true, 60 * 60 * 24 * 30 );
+	// wbi_debug("CRON WAS FIXED");
 }
 
 function add_cron() {
