@@ -22,8 +22,8 @@ defined('ABSPATH') || exit;
  */
 
 // TEMP
-add_action('wp', __NAMESPACE__ .'\fix_cron');
-add_action( 'mnmlbc2wc_main_cron_hook', '__return_true' );
+// add_action('wp', __NAMESPACE__ .'\fix_cron');
+// add_action( 'mnmlbc2wc_main_cron_hook', '__return_true' );
 
 add_action( 'bandcamp_woo_periodic_fetch', __NAMESPACE__ .'\main_process' );
 add_action( 'bandcamp_woo_retry_mark_shipped', __NAMESPACE__ .'\retry_add_tracking' );
@@ -36,7 +36,7 @@ function fix_cron() {
 
 	wbi_debug("RUNNING CRON FIX");
 
-	remove_cron();
+	// remove_cron();
 
 	if ( as_has_scheduled_action( 'mnmlbc2wc_main_cron_hook' ) ) {
 		as_unschedule_all_actions( 'mnmlbc2wc_main_cron_hook' );
