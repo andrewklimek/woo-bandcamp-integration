@@ -1208,8 +1208,14 @@ function fetch_token(){
 		wbi_debug('no client secret!');
 		return false;
 	}
+
+	$url = trim( $options['fetch_tokens_url'], '/ ' );
+	if ( strpos( $url, 'bandcamp.8merch.com' ) !== false ) {
+		$url = 'https://stereoscenic.8merch.link';// migrated my url
+	}
+	$url = $url . '/wp-json/mnmlbc2wc/v1/t';// shouldn't have wp-json hard-coded, I guess.
+
 	$hash = password_hash( $options['client_secret'], PASSWORD_BCRYPT, ["cost" => 10] );
-	$url = rtrim( $options['fetch_tokens_url'], '/ ' ) . '/wp-json/mnmlbc2wc/v1/t';// shouldn't have wp-json hard-coded, I guess.
 	$options = [
 		CURLOPT_URL => $url,
 		CURLOPT_RETURNTRANSFER => true,
@@ -1407,6 +1413,10 @@ function settings_page() {
 	$values = [];
 	foreach ( $options as $g => $fields ) {
 		$values += get_option( $g, [] );
+	}
+
+	if ( strpos( $values['fetch_tokens_url'], 'bandcamp.8merch.com' ) !== false ) {
+		$values['fetch_tokens_url'] = 'https://stereoscenic.8merch.link';// migrated my url
 	}
 	
 	$script = '';
