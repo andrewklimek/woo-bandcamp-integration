@@ -1132,7 +1132,7 @@ function auth( $force_refresh=false, $return_array=false ){
 
 	$settings = !empty( $GLOBALS['bc2wc_settings'] ) ? $GLOBALS['bc2wc_settings'] : get_option('mnmlbc2wc');
 
-	if ( ! empty( $settings['fetch_tokens_url'] ) ) {
+	if ( ! empty( $settings['fetch_tokens_url'] ) && empty( $settings['serve_tokens'] ) ) {
 		$token = fetch_token();
 		if ( $token ) {
 			// wbi_debug("using saved token from remote site");
@@ -1229,7 +1229,7 @@ function fetch_token(){
 	$token = json_decode($json);
 
 	if ( empty( $token->access) ) {
-		wbi_debug("Couldn't fetch token from master site.  Is the url correct, and is the plugin active on the other site?");
+		wbi_debug("Couldn't fetch token from master site.  Is the $url correct, and is the plugin active on the other site?");
 		if ( isset( $token->code ) && $token->code === "rest_no_route" ) {
 			log("Check the \"fetch tokens url\" url make sure the plugin is active on that site.");
 		}
