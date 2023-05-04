@@ -1210,8 +1210,8 @@ function fetch_token(){
 	}
 
 	$url = trim( $options['fetch_tokens_url'], '/ ' );
-	if ( strpos( $url, 'bandcamp.8merch.com' ) !== false ) {
-		$url = 'https://stereoscenic.8merch.link';// migrated my url
+	if ( $url === 'https://stereoscenic.8merch.link' ) {
+		$url = 'https://bandcamp.8merch.com';// migrated my url
 	}
 	$url = $url . '/wp-json/mnmlbc2wc/v1/t';// shouldn't have wp-json hard-coded, I guess.
 
