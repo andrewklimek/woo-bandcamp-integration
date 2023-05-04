@@ -1873,7 +1873,7 @@ add_action( 'woocommerce_before_account_orders', function(){
 add_filter( 'woocommerce_my_account_my_orders_query', __NAMESPACE__ .'\woocommerce_my_account_my_orders_query', 1, 10 );
 function woocommerce_my_account_my_orders_query ( $query ) {
     $settings = get_option('mnmlbc2wc');
-	wbi_debug( 'assign orders to: '. $settings['assign_orders_to'] );
+	// wbi_debug( 'assign orders to: '. $settings['assign_orders_to'] );
     if ( ( !empty( $settings['assign_orders_to'] ) && (int) $settings['assign_orders_to'] === get_current_user_id() ) || current_user_can('view_woocommerce_reports') ) {
 	    unset($query['customer']);
 		$query['type'] = 'shop_order';// need to exclude 'shop_order_refund' which is the only other type.  These are a special type of order that don't have the same functions.  the results will still contain the original order with status refunded
