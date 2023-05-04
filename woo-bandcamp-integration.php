@@ -1415,8 +1415,8 @@ function settings_page() {
 		$values += get_option( $g, [] );
 	}
 
-	if ( strpos( $values['fetch_tokens_url'], 'bandcamp.8merch.com' ) !== false ) {
-		$values['fetch_tokens_url'] = 'https://stereoscenic.8merch.link';// migrated my url
+	if ( $values['fetch_tokens_url'] === 'https://stereoscenic.8merch.link' ) {
+		$values['fetch_tokens_url'] = 'https://bandcamp.8merch.com';// migrated my url
 	}
 	
 	$script = '';
