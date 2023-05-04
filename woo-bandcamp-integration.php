@@ -1126,7 +1126,7 @@ function auth( $force_refresh=false, $return_array=false ){
 			// wbi_debug( "using saved token" );
 			return $return_array ? $token : $token['access'];
 		}// else
-		wbi_debug( "refreshing" );
+		// wbi_debug( "refreshing" );
 		$refresh_token = $token['refresh'];
 	}
 
@@ -1238,7 +1238,7 @@ function fetch_token(){
 	}
 	$token = (array) $token;
 
-	wbi_debug($token);
+	// wbi_debug($token);
 	update_option( 'mnmlbc2wc_token', $token, false );
 
 	return $token;
