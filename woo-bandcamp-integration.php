@@ -207,6 +207,7 @@ function main_process( $manual=false ) {
 
 	if ( empty($settings['client_id']) || empty($settings['client_secret']) ) {
 		remove_cron();
+		wbi_debug("removed cron cuz no api credentials");
 		return;// Quit right away if no credentials
 	}
 
