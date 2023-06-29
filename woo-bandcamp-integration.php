@@ -2142,3 +2142,23 @@ function wbi_debug( $var, $note='', $file='debug.log', $time='m-d H:i:s' ){
 	}
 	error_log("\n[". date($time) ."] ". $note . $var, 3, __DIR__ ."/". $file );
 }
+
+
+/***
+ * Actual Customer name in Orders list
+ **/
+
+add_filter( 'woocommerce_admin_order_buyer_name', function($buyer, $order){
+	if ( $order->get_created_via() === "Bandcamp Integration" ) {
+	// $settings = get_option('mnmlbc2wc');
+	// if ( !empty( $settings['assign_orders_to'] ) ) {
+		// if ( $order->get_customer_id() === $settings['assign_orders_to'] ) {
+			$shipping_name = $order->get_shipping_first_name() .' '. $order->get_shipping_last_name();
+			if ( $shipping_name != ' ' ) {
+				$buyer = $shipping_name;
+			}
+		// }
+	}
+	return $buyer;// . ' - ' . $order->get_item_count() . ' items';
+}, 10, 2 );
+
