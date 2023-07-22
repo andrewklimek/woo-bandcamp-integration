@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-03-20 exclude refund order type from dashboard
+Version:     2023-07-21 shipstation tracking number on dashboard
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -878,17 +878,7 @@ function find_woo_product( $data ) {
  * 	$tracking = $order->get_meta('_wc_shipment_tracking_items', 1 ); $number = $tracking[0]["tracking_number"]);
  */
 
-
-add_action('woocommerce_after_order_object_save',__NAMESPACE__ .'\handle_order_completion' );// Seems to run 3 times and only has tracking the final time
-function handle_order_completion( $order ){
-
-	// wbi_debug("would remove actions at this point");
-	// add_action( 'woocommerce_email', __NAMESPACE__ .'\disable_woo_emails' );// too late to run this.
-
-	if ( 'completed' !== $order->get_status() || $order->get_meta('marked_off_on_bandcamp') || ! $order->get_meta('bandcamp_id') ) return;
-	wbi_debug( "Processing tracking update for ". $order->get_id()  );
-	
-
+function get_tracking_number( $order ) {
 	$tracking = $order->get_meta('_tracking_number');// used by baselinker
 	if ( ! $tracking ) {
 		wbi_debug("no _tracking_number meta... looking into order notes.");
@@ -906,6 +896,20 @@ function handle_order_completion( $order ){
 			wbi_debug("tracking number parsed from order note is " . $tracking);
 		}
 	}
+	return $tracking;
+}
+
+add_action('woocommerce_after_order_object_save',__NAMESPACE__ .'\handle_order_completion' );// Seems to run 3 times and only has tracking the final time
+function handle_order_completion( $order ){
+
+	// wbi_debug("would remove actions at this point");
+	// add_action( 'woocommerce_email', __NAMESPACE__ .'\disable_woo_emails' );// too late to run this.
+
+	if ( 'completed' !== $order->get_status() || $order->get_meta('marked_off_on_bandcamp') || ! $order->get_meta('bandcamp_id') ) return;
+	wbi_debug( "Processing tracking update for ". $order->get_id()  );
+	
+
+	$tracking = get_tracking_number( $order );
 
 	if ( ! $tracking ) return;
 	wbi_debug('mark off shipped');
@@ -1779,7 +1783,7 @@ add_action( 'woocommerce_my_account_my_orders_column_order-items', function($ord
 }, 1, 10 );
 
 add_action( 'woocommerce_my_account_my_orders_column_order-tracking', function($order){
-    if ( $tracking = $order->get_meta('_tracking_number') ) echo $tracking;
+	if ( $tracking = get_tracking_number( $order ) ) echo $tracking;
 }, 1, 10 );
 
 add_action( 'woocommerce_before_account_orders', function(){
