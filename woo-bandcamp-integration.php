@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-07-21 shipstation tracking number on dashboard
+Version:     2023-07-25 Analytics access
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -1282,12 +1282,22 @@ function api_settings( $request ) {
 	foreach ( $data as $k => $v ) update_option( $k, $v, false );
 	
 	// set_default_customer($data);
+	set_owner_role($data);
 
 	set_cron_option_save($data);
 	
 	return "Saved";
 }
 
+function set_owner_role( $data ) {
+    if ( !empty( $data['mnmlbc2wc']['assign_orders_to'] ) && is_numeric( $data['mnmlbc2wc']['assign_orders_to'] ) ) {
+		$user_id = $data['mnmlbc2wc']['assign_orders_to'];
+		$caps = array_fill_keys(['read','read_product','read_private_products','read_shop_order','read_private_shop_orders','read_shop_coupon','manage_woocommerce','view_woocommerce_reports','frontend_manager'], true );
+		add_role( 'frontend_manager', '8Merch Platform User', $caps );
+		$user = new \WP_User( $user_id );
+		$user->set_role( 'frontend_manager' );
+	}
+}
 /**
  * This retroactively sets orders to default user... won't normally use this but can be enabled on settigns saved in apt_settings() above.
  * if run by accident, this SQL command can help fix:
@@ -1966,6 +1976,66 @@ function assign_to_setting_view_permission_override( $allcaps, $caps, $args, $us
 	}
 	return $allcaps;
 }
+
+// add_action('current_screen', function(){
+
+// 	var_dump( get_current_screen());
+// });
+
+add_action('admin_init', __NAMESPACE__.'\block_other_areas');
+function block_other_areas(){
+	if ( wp_doing_ajax() || current_user_can( 'manage_options' ) ) return;
+	if ( $GLOBALS['pagenow'] !== 'admin.php'
+	|| empty( $_GET['page'] ) || $_GET['page'] !== "wc-admin"
+	|| empty( $_GET['path'] ) || 1 !== strpos( $_GET['path'], 'analytics' ) ) {
+		if ( current_user_can( 'view_woocommerce_reports' ) )
+			wp_safe_redirect( site_url( '/wp-admin/admin.php?page=wc-admin&path=%2Fanalytics%2Foverview', 'https' ) );
+		else die;
+	} else {
+		add_action('admin_head', __NAMESPACE__.'\give_access_to_analytics');
+		add_action('admin_footer', __NAMESPACE__.'\add_script_to_analytics' );
+	}
+}
+// add_action('admin_head', __NAMESPACE__.'\give_access_to_analytics');
+function give_access_to_analytics(){
+	echo "<style>html.wp-toolbar{padding:0 !important}
+	#adminmenuwrap,#adminmenuback,.woocommerce-layout__header,#wpadminbar{display:none !important}
+	#wpcontent,#wpbody{margin:0 !important}
+	#modified-analytics-menu > a {
+		padding: 1ex;
+		border: 1px solid #bbb;
+		margin: 1ex;
+		display: inline-block;
+		text-decoration: none;
+		background: #fff;
+		border-radius: 4px;
+		color: #333;
+	}
+	#modified-analytics-menu {
+		text-align: center;
+		margin-top: 1em;
+	}
+	#modified-analytics-menu > a:hover {
+		background: #eee;
+	}
+	</style>";
+	// remove_menu_page('woocommerce-marketing');
+	// remove_menu_page('wc-reports');
+	// remove_menu_page('woocommerce');
+}
+function add_script_to_analytics(){
+	?><script>
+	var links = document.querySelectorAll('#toplevel_page_wc-admin-path--analytics-overview ul a');
+	var nav = document.createElement('nav');
+	nav.id='modified-analytics-menu';
+	links.forEach(e=>{nav.append(e)});
+	document.querySelector('#wpcontent').insertAdjacentElement('afterBegin',nav);
+</script><?php
+}
+
+add_filter( 'show_admin_bar', function( $show ){ return current_user_can( 'manage_options' ) ? $show : false; } );
+
+
 
 // function register_role(){
 //     add_role( 'order_viewer', 'Bandcamp Order Viewer', ['read' => true, 'read_shop_order' => true, 'edit_shop_order' => true, 'edit_shop_orders' => true, 'edit_others_shop_orders' => true ] );
