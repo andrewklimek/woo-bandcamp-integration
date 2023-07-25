@@ -3,7 +3,7 @@ namespace mnml_bandcamp_woo;
 /*
 Plugin Name: WooCommerce Bandcamp Integration
 Description: Import orders from Bandcamp to WooCommerce
-Version:     2023-07-25 Analytics access
+Version:     2023-07-25 Analytics access & import CSV changes
 Plugin URI: 
 Author URI: https://github.com/andrewklimek/
 Author:     Andrew J Klimek
@@ -743,6 +743,10 @@ function find_woo_product( $data ) {
     	}
 	}
 	// no SKU...
+	if ( empty( $data->item_name ) ) {
+		log("sku didn't work and no item_name for " . var_export( $data, true) );
+		return false;
+	}
 	// Try special "bandcamp title" field
 	global $wpdb;
 
@@ -2057,7 +2061,7 @@ function order_import( $a='' ) {
 
 	$form = '<form method=post enctype="multipart/form-data">'
 		   . '<input type=file id=csv name=csv>'
-		   . '<p>please make sure the first line of the CSV is:</p> <pre>first name or full name,last name or blank,address 1,address 2,city,state,postcode,country,quantity,sku,artist,item name,option</pre>'
+		   . '<p>CSV template:</p> <pre>first name or full name,last name or blank,address 1,address 2,city,state,postcode,country,quantity,sku,email (optional),phone (optional)</pre>'
 		   . '<button class=button type=submit>Import CSV</button></form>';
 	
 	if ( empty($_FILES) ) return $form;
@@ -2087,8 +2091,13 @@ function order_import( $a='' ) {
 	}
 
 	// compare header row to make sure this is a csv we can work with
-	if ( str_replace("\t", ",", strtolower($csv[0]) ) !== "first name or full name,last name or blank,address 1,address 2,city,state,postcode,country,quantity,sku,artist,item name,option" ) {
-		$html .= "<p>please make sure the first line of the CSV is:</p><pre>first name or full name,last name or blank,address 1,address 2,city,state,postcode,country,quantity,sku,artist,item name,option</pre>";
+	// if ( str_replace("\t", ",", strtolower($csv[0]) ) !== "first name or full name,last name or blank,address 1,address 2,city,state,postcode,country,quantity,sku,email (optional),phone (optional)" ) {
+	// 	$html .= "<p>please make sure the first line of the CSV is:</p><pre>first name or full name,last name or blank,address 1,address 2,city,state,postcode,country,quantity,sku,email (optional),phone (optional)</pre>";
+	// 	return $html . $form;
+	// }
+	// in lieu of validating the header row directly, just see that there is at least 10 columns (last 2 optional)
+	if ( 9 > substr_count( $csv[0], $delimiter ) ) {
+		$html .= "<p>please make sure the first line of the CSV is:</p><pre>first name or full name,last name or blank,address 1,address 2,city,state,postcode,country,quantity,sku,email (optional),phone (optional)</pre>";
 		return $html . $form;
 	}
 
@@ -2115,16 +2124,21 @@ function order_import( $a='' ) {
 	    'shipping_country',
 	    'quantity',
 	    'sku',
-	    'artist',
-	    'item_name',
-	    'option',
+	    'shipping_email',
+	    'shipping_phone',
 	    ];
-	    
+	$columns = array_slice( $columns, 0, 1 + substr_count( $csv[0], $delimiter ) );// remove optional columns at end by trimming to number of colums in the first row
+	
+	// remove optional header row
+	if ( false !== stripos( $csv[0], "name" ) && stripos( $csv[0], "address" ) ) {
+		unset( $csv[0] );
+	}
+
     // process rows
 	foreach ( $csv as $index => $row ) {
 	    
 		if ( $need_to_convert ) $row = mb_convert_encoding( $row, 'UTF-8', 'UTF-16' );// fix char encoding for bandcamp
-		if ( ! $row || $index === 0 ) continue;
+		if ( ! $row ) continue;
 		
 		$row = str_getcsv( $row, $delimiter );
         
@@ -2149,19 +2163,19 @@ function order_import( $a='' ) {
             }
             
             // prepare address array with only the columes begining with "shipping"
-            // $address = array_filter( $data, function($k) { return substr( $k, 0, 8 ) === 'shipping'; }, ARRAY_FILTER_USE_KEY );
-            $address = array_slice( $data, 0, 8 );
+            $address = array_filter( $data, function($k) { return substr( $k, 0, 8 ) === 'shipping'; }, ARRAY_FILTER_USE_KEY );
+            // $address = array_slice( $data, 0, 8 );
     
     		$o[ $order_key ] = [ 'shipping' => $address, 'bc_id' => [], 'line_items' => [] ];// bc_id isnt used here but make_woo_order() expects it, and maybe it would be useful in future
     	}
         
 		// run function with a few ways to try to find it
-		$data['item_name'] = str_replace( ',', ':', $data['item_name'] );// stupidly bandcamp CSVs use commas where the API uses colons.
+		// $data['item_name'] = str_replace( ',', ':', $data['item_name'] );// stupidly bandcamp CSVs use commas where the API uses colons.
 		$product_id = find_woo_product( (object) $data );
 		
 		if ( ! $product_id ) {
-			$html .= "<p>Couldn't find product ID for {$data['item_name']}.  The order containing this product will not be imported.  See line " . (1 + $index);
-            $o[ $order_key ]['missing_item'] = $data['item_name'];
+			$html .= "<p>Couldn't find product ID for {$data['sku']}.  The order containing this product will not be imported.  See line " . (1 + $index);
+            $o[ $order_key ]['missing_item'] = $data['sku'];
 		}
     	
         // add product as line item
